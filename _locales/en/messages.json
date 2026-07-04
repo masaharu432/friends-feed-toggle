@@ -17,6 +17,18 @@
   "zoomLabel": {
     "message": "Enlarge feed (desktop view)"
   },
+  "diagNoTab": {
+    "message": "Open this on a Facebook tab to see status"
+  },
+  "diagFeed": {
+    "message": "Friends feed"
+  },
+  "diagSidebar": {
+    "message": "Sidebar hidden"
+  },
+  "diagZoom": {
+    "message": "Zoom applied"
+  },
   "popupNote": {
     "message": "While ON, opening the Facebook home page takes you to the built-in Friends feed (chronological, friends only)."
   }

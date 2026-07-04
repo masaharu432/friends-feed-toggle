@@ -46,15 +46,18 @@
 
   function findSidebar() {
     // フィード切り替えリンク(filter=...)を 2 つ以上含み、かつ
-    // フィード本体(role=main)を含まない最小の祖先 = 左サイドバー
-    const links = document.querySelectorAll(
-      'a[href*="filter="], a[href*="/feeds/friends"]'
+    // フィード本体(role=main)を含まない最小の祖先 = 左サイドバー。
+    // 本文やヘッダー内の紛れ込みリンクは除外する。
+    const main = document.querySelector('[role="main"]');
+    const banner = document.querySelector('[role="banner"]');
+    const links = [
+      ...document.querySelectorAll('a[href*="filter="], a[href*="/feeds/friends"]'),
+    ].filter(
+      (a) => !(main && main.contains(a)) && !(banner && banner.contains(a))
     );
     if (links.length < 2) return null;
-    const first = links[0];
     const last = links[links.length - 1];
-    const main = document.querySelector('[role="main"]');
-    let el = first.parentElement;
+    let el = links[0].parentElement;
     while (el && !el.contains(last)) el = el.parentElement;
     if (!el || el === document.body || el === document.documentElement) return null;
     if (main && el.contains(main)) return null;
@@ -124,7 +127,17 @@
     maybeRedirect();
     applyView();
   });
-  window.addEventListener("resize", () => {
-    if (document.documentElement.classList.contains("fft-zoom")) updateZoomVar();
+  // ポップアップからの状態問い合わせ(診断表示用)
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+    if (!msg || msg.type !== "fft-status") return;
+    sendResponse({
+      friendsFeed: isFriendsFeedUrl(location.href),
+      sidebarHidden: Boolean(hiddenSidebar && hiddenSidebar.isConnected),
+      zoomApplied: Boolean(
+        zoomedMain && zoomedMain.isConnected && zoomedMain.style.zoom
+      ),
+      linkCount: document.querySelectorAll('a[href*="filter="]').length,
+      hasMain: Boolean(document.querySelector('[role="main"]')),
+    });
   });
 })();

@@ -29,3 +29,25 @@ toggle.addEventListener("change", () => {
 zoom.addEventListener("change", () => {
   chrome.storage.local.set({ [ZOOM_KEY]: zoom.checked });
 });
+
+// 診断表示: 現在のタブの content script に状態を問い合わせる
+document.getElementById("version").textContent =
+  "v" + chrome.runtime.getManifest().version;
+
+const diag = document.getElementById("diag");
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+  const tab = tabs && tabs[0];
+  if (!tab || tab.id === undefined) return;
+  chrome.tabs.sendMessage(tab.id, { type: "fft-status" }, (res) => {
+    if (chrome.runtime.lastError || !res) {
+      diag.textContent = chrome.i18n.getMessage("diagNoTab");
+      return;
+    }
+    const mark = (ok) => (ok ? "✓" : "✕");
+    diag.textContent =
+      `${chrome.i18n.getMessage("diagFeed")}: ${mark(res.friendsFeed)}  ` +
+      `${chrome.i18n.getMessage("diagSidebar")}: ${mark(res.sidebarHidden)}  ` +
+      `${chrome.i18n.getMessage("diagZoom")}: ${mark(res.zoomApplied)}  ` +
+      `(links:${res.linkCount} main:${res.hasMain ? 1 : 0})`;
+  });
+});

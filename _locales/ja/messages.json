@@ -17,6 +17,18 @@
   "zoomLabel": {
     "message": "フィードを拡大表示(PC表示)"
   },
+  "diagNoTab": {
+    "message": "Facebookのタブで開くと動作状態を表示します"
+  },
+  "diagFeed": {
+    "message": "友達フィード判定"
+  },
+  "diagSidebar": {
+    "message": "サイドバー非表示"
+  },
+  "diagZoom": {
+    "message": "拡大適用"
+  },
   "popupNote": {
     "message": "ON の間、Facebook のホームを開くと標準の「友達」フィード(時系列・友達の投稿のみ)が表示されます。"
   }
