@@ -6,6 +6,7 @@ const FACTOR_KEY = "zoomFactor";
 const toggle = document.getElementById("toggle");
 const zoom = document.getElementById("zoom");
 const factor = document.getElementById("factor");
+const factorValue = document.getElementById("factorValue");
 const stateLabel = document.getElementById("state");
 
 for (const el of document.querySelectorAll("[data-i18n]")) {
@@ -18,13 +19,18 @@ function render(enabled) {
   document.body.classList.toggle("on", enabled);
 }
 
+function renderFactor() {
+  factorValue.textContent = factor.value + "%";
+}
+
 chrome.storage.local.get(
-  { [STATE_KEY]: false, [ZOOM_KEY]: true, [FACTOR_KEY]: "auto" },
+  { [STATE_KEY]: false, [ZOOM_KEY]: true, [FACTOR_KEY]: "1.3" },
   (items) => {
     render(Boolean(items[STATE_KEY]));
     zoom.checked = Boolean(items[ZOOM_KEY]);
-    factor.value = String(items[FACTOR_KEY]);
-    if (factor.selectedIndex < 0) factor.value = "auto";
+    const n = parseFloat(items[FACTOR_KEY]);
+    factor.value = String(Number.isFinite(n) ? Math.round(n * 100) : 130);
+    renderFactor();
   }
 );
 
@@ -37,8 +43,11 @@ zoom.addEventListener("change", () => {
   chrome.storage.local.set({ [ZOOM_KEY]: zoom.checked });
 });
 
+// ドラッグ中は数字表示だけ更新し、指を離したときに 1 回だけ適用する
+// (zoom の変更はページ全体の再レイアウトになるため、連続適用すると重い)
+factor.addEventListener("input", renderFactor);
 factor.addEventListener("change", () => {
-  chrome.storage.local.set({ [FACTOR_KEY]: factor.value });
+  chrome.storage.local.set({ [FACTOR_KEY]: String(Number(factor.value) / 100) });
 });
 
 // 診断表示: 現在のタブの content script に状態を問い合わせる

@@ -124,14 +124,17 @@ h1 {
   transform: translateX(18px);
 }
 
-select {
-  font: inherit;
-  font-size: 12px;
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--track-off);
-  border-radius: 6px;
-  padding: 4px 6px;
+.factor-value {
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  /* スマホでも掴みやすいように太めに */
+  height: 28px;
 }
 
 body.on .state {

@@ -9,5 +9,5 @@ html.fft-zoom [role="navigation"]:has(a[href*="filter=friends"]) {
 }
 
 html.fft-zoom [role="main"] {
-  zoom: var(--fft-zoom, 1.4);
+  zoom: var(--fft-zoom, 1.3);
 }

@@ -12,7 +12,7 @@
 
   let enabled = false;
   let zoomEnabled = true;
-  let zoomSetting = "auto";
+  let zoomSetting = "1.3";
 
   function loopGuardAllows() {
     try {
@@ -83,7 +83,11 @@
       }
       const main = document.querySelector('[role="main"]');
       if (main) {
-        main.style.zoom = zoomFactor();
+        // 同じ値の再適用は再レイアウトの無駄なので、変わったときだけ触る
+        const desired = zoomFactor();
+        if (Math.abs(parseFloat(main.style.zoom || "1") - parseFloat(desired)) > 0.001) {
+          main.style.zoom = desired;
+        }
         zoomedMain = main;
       }
     } else {
@@ -107,7 +111,7 @@
   }
 
   chrome.storage.local.get(
-    { [STATE_KEY]: false, [ZOOM_KEY]: true, [FACTOR_KEY]: "auto" },
+    { [STATE_KEY]: false, [ZOOM_KEY]: true, [FACTOR_KEY]: "1.3" },
     onStateLoaded
   );
 
