@@ -81,9 +81,45 @@
     for (const child of feed.children) {
       stripSideSpace(child, true);
     }
+    normalizeBigText(feed);
+  }
+
+  // Facebook は短文だけの投稿を特大フォント(約 24px〜)で表示する。
+  // 拡大表示と重なると極端に大きくなるので、投稿本文の特大フォントを
+  // 通常サイズに揃える。処理済みカードには印を付けて再走査を避ける。
+  const BIG_FONT_PX = 22;
+  const NORMAL_FONT = "15px";
+
+  function normalizeBigText(feed) {
+    for (const card of feed.children) {
+      if (card.dataset.fftFontDone) continue;
+      let sawText = false;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
+      for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+        if (el.dataset.fftFont) continue;
+        const hasDirectText = [...el.childNodes].some(
+          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
+        );
+        if (!hasDirectText) continue;
+        sawText = true;
+        if (parseFloat(getComputedStyle(el).fontSize) >= BIG_FONT_PX) {
+          el.dataset.fftFont = "1";
+          el.style.setProperty("font-size", NORMAL_FONT, "important");
+        }
+      }
+      // テキストが描画済みのカードだけ処理完了にする(描画途中対策)
+      if (sawText) card.dataset.fftFontDone = "1";
+    }
   }
 
   function unwidenFeed() {
+    for (const el of document.querySelectorAll("[data-fft-font]")) {
+      el.style.removeProperty("font-size");
+      delete el.dataset.fftFont;
+    }
+    for (const el of document.querySelectorAll("[data-fft-font-done]")) {
+      delete el.dataset.fftFontDone;
+    }
     for (const el of document.querySelectorAll("[data-fft-wide]")) {
       for (const p of [
         "width",
