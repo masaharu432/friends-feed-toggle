@@ -52,24 +52,49 @@
   // 投稿カードの列は Facebook 側で固定幅になっているため、
   // フィード(role=feed)から main までの祖先の幅制限を外して
   // 画面いっぱいに広げる。外した要素には印を付けて復元できるようにする。
+  function stripSideSpace(el, withWidth) {
+    if (el.dataset.fftWide) return;
+    el.dataset.fftWide = "1";
+    if (withWidth) {
+      el.style.setProperty("width", "100%", "important");
+      el.style.setProperty("max-width", "none", "important");
+    }
+    el.style.setProperty("padding-left", "0", "important");
+    el.style.setProperty("padding-right", "0", "important");
+    el.style.setProperty("margin-left", "0", "important");
+    el.style.setProperty("margin-right", "0", "important");
+  }
+
   function widenFeed(mainEl) {
     const feed = mainEl.querySelector('[role="feed"]');
     if (!feed) return;
+    // feed から main までの祖先: 幅制限と左右の余白を外す
     let el = feed;
     while (el && el !== mainEl) {
-      if (!el.dataset.fftWide) {
-        el.dataset.fftWide = "1";
-        el.style.setProperty("width", "100%", "important");
-        el.style.setProperty("max-width", "none", "important");
-      }
+      stripSideSpace(el, true);
       el = el.parentElement;
+    }
+    // main 自身の左右 padding も外す(幅は触らない)
+    stripSideSpace(mainEl, false);
+    // 各投稿カードのラッパー: 左右 margin を外して幅いっぱいに
+    // (カード内部の padding はデザインなので触らない)
+    for (const child of feed.children) {
+      stripSideSpace(child, true);
     }
   }
 
   function unwidenFeed() {
     for (const el of document.querySelectorAll("[data-fft-wide]")) {
-      el.style.removeProperty("width");
-      el.style.removeProperty("max-width");
+      for (const p of [
+        "width",
+        "max-width",
+        "padding-left",
+        "padding-right",
+        "margin-left",
+        "margin-right",
+      ]) {
+        el.style.removeProperty(p);
+      }
       delete el.dataset.fftWide;
     }
   }
