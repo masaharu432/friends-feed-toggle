@@ -24,6 +24,7 @@
 
 body {
   width: 260px;
+  margin: 0 auto; /* オプションページとしてタブで開いたとき用に中央寄せ */
   background: var(--bg);
   color: var(--fg);
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
