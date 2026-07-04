@@ -43,7 +43,7 @@
 
   function zoomFactor() {
     const n = parseFloat(zoomSetting);
-    if (Number.isFinite(n) && n >= 1 && n <= 3) return n.toFixed(2);
+    if (Number.isFinite(n) && n >= 1 && n <= 4) return n.toFixed(2);
     return "1.30";
   }
 
