@@ -52,15 +52,18 @@
   // 投稿カードの列は Facebook 側で固定幅になっているため、
   // フィード(role=feed)から main までの祖先の幅制限を外して
   // 画面いっぱいに広げる。外した要素には印を付けて復元できるようにする。
-  function stripSideSpace(el, withWidth) {
+  // 画面端との間に残す余白
+  const EDGE_GAP = "8px";
+
+  function stripSideSpace(el, withWidth, sidePad = "0") {
     if (el.dataset.fftWide) return;
     el.dataset.fftWide = "1";
     if (withWidth) {
       el.style.setProperty("width", "100%", "important");
       el.style.setProperty("max-width", "none", "important");
     }
-    el.style.setProperty("padding-left", "0", "important");
-    el.style.setProperty("padding-right", "0", "important");
+    el.style.setProperty("padding-left", sidePad, "important");
+    el.style.setProperty("padding-right", sidePad, "important");
     el.style.setProperty("margin-left", "0", "important");
     el.style.setProperty("margin-right", "0", "important");
   }
@@ -74,8 +77,8 @@
       stripSideSpace(el, true);
       el = el.parentElement;
     }
-    // main 自身の左右 padding も外す(幅は触らない)
-    stripSideSpace(mainEl, false);
+    // main 自身は画面端との余白を少しだけ残す(幅は触らない)
+    stripSideSpace(mainEl, false, EDGE_GAP);
     // 各投稿カードのラッパー: 左右 margin を外して幅いっぱいに
     // (カード内部の padding はデザインなので触らない)
     for (const child of feed.children) {
