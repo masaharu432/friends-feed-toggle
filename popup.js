@@ -50,6 +50,20 @@ factor.addEventListener("change", () => {
   chrome.storage.local.set({ [FACTOR_KEY]: String(Number(factor.value) / 100) });
 });
 
+// 診断ダンプ: 現在のタブのページ構造を匿名化 JSON でダウンロードさせる
+document.getElementById("dump").addEventListener("click", () => {
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs && tabs[0];
+    if (!tab || tab.id === undefined) return;
+    chrome.tabs.sendMessage(tab.id, { type: "fft-dump" }, () => {
+      const d = document.getElementById("diag");
+      d.textContent = chrome.runtime.lastError
+        ? chrome.i18n.getMessage("diagNoTab")
+        : chrome.i18n.getMessage("dumpDone");
+    });
+  });
+});
+
 // 診断表示: 現在のタブの content script に状態を問い合わせる
 document.getElementById("version").textContent =
   "v" + chrome.runtime.getManifest().version;

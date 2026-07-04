@@ -23,6 +23,12 @@
   "zoomAuto": {
     "message": "Auto (fit to screen)"
   },
+  "dumpButton": {
+    "message": "Download diagnostic file"
+  },
+  "dumpDone": {
+    "message": "Diagnostic saved (contains no post text or names)"
+  },
   "diagNoTab": {
     "message": "Open this on a Facebook tab to see status"
   },

@@ -23,6 +23,12 @@
   "zoomAuto": {
     "message": "自動(画面幅に合わせる)"
   },
+  "dumpButton": {
+    "message": "診断ファイルをダウンロード"
+  },
+  "dumpDone": {
+    "message": "診断ファイルを保存しました(投稿の本文・名前は含まれません)"
+  },
   "diagNoTab": {
     "message": "Facebookのタブで開くと動作状態を表示します"
   },

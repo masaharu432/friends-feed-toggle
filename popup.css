@@ -158,3 +158,14 @@ body.on .state {
   font-size: 10px;
   color: var(--muted);
 }
+
+.dump-btn {
+  font: inherit;
+  font-size: 11px;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--track-off);
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+}

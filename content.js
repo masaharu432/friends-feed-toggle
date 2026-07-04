@@ -278,9 +278,86 @@
     applyView();
   });
 
-  // ポップアップからの状態問い合わせ(診断表示用)
+  // ---- 診断ダンプ ----
+  // ページ構造と実測フォントサイズを匿名化して JSON 化する。
+  // 投稿の本文・名前は含めない(テキストは文字数のみ記録)。
+  function buildDump() {
+    const main = document.querySelector('[role="main"]');
+    const feed = main && main.querySelector('[role="feed"]');
+    const dump = {
+      version: chrome.runtime.getManifest().version,
+      url: location.href,
+      ua: navigator.userAgent,
+      innerWidth: window.innerWidth,
+      innerHeight: window.innerHeight,
+      dpr: window.devicePixelRatio,
+      vvScale: window.visualViewport ? window.visualViewport.scale : null,
+      settings: { enabled, zoomEnabled, zoomSetting },
+      mainZoom: main ? main.style.zoom : null,
+      hasMain: Boolean(main),
+      hasFeed: Boolean(feed),
+      sidebarHidden: Boolean(hiddenSidebar && hiddenSidebar.isConnected),
+      sidebarFound: Boolean(findSidebar()),
+      fontScale: feed ? fontScale(feed) : null,
+      cards: [],
+    };
+    if (feed) {
+      const vh = window.innerHeight;
+      let i = -1;
+      for (const card of feed.children) {
+        i++;
+        const r = card.getBoundingClientRect();
+        if (r.bottom < -vh || r.top > 2 * vh) continue;
+        const texts = [];
+        const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
+        for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+          const t = [...el.childNodes]
+            .filter((n) => n.nodeType === Node.TEXT_NODE)
+            .map((n) => n.textContent)
+            .join("")
+            .trim();
+          if (!t) continue;
+          texts.push({
+            tag: el.tagName.toLowerCase(),
+            fontPx: getComputedStyle(el).fontSize,
+            inline: el.getAttribute("style") || "",
+            fft: el.dataset.fftFont || "",
+            len: t.length,
+          });
+        }
+        dump.cards.push({
+          i,
+          top: Math.round(r.top),
+          h: Math.round(r.height),
+          w: Math.round(r.width),
+          texts,
+        });
+      }
+    }
+    return dump;
+  }
+
+  function downloadDump() {
+    const blob = new Blob([JSON.stringify(buildDump(), null, 1)], {
+      type: "application/json",
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "fft-diagnostic.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
+  // ポップアップからのメッセージ(診断表示・診断ダンプ)
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg || msg.type !== "fft-status") return;
+    if (!msg) return;
+    if (msg.type === "fft-dump") {
+      downloadDump();
+      sendResponse({ ok: true });
+      return;
+    }
+    if (msg.type !== "fft-status") return;
     sendResponse({
       friendsFeed: isFriendsFeedUrl(location.href),
       sidebarHidden: Boolean(hiddenSidebar && hiddenSidebar.isConnected),
