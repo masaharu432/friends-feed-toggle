@@ -75,6 +75,9 @@ test("不正な URL は null を返す", () => {
 test("isFriendsFeedUrl: 友達フィード表示中の URL だけ true", () => {
   assert.equal(isFriendsFeedUrl("https://www.facebook.com/?filter=friends&sk=h_chr"), true);
   assert.equal(isFriendsFeedUrl("https://m.facebook.com/feeds/friends"), true);
+  // PC 表示でもホストが m. のままの場合がある
+  assert.equal(isFriendsFeedUrl("https://m.facebook.com/?filter=friends&sk=h_chr"), true);
+  assert.equal(isFriendsFeedUrl("https://www.facebook.com/feeds/friends"), true);
   assert.equal(isFriendsFeedUrl("https://www.facebook.com/"), false);
   assert.equal(isFriendsFeedUrl("https://www.facebook.com/?filter=groups&sk=h_chr"), false);
   assert.equal(isFriendsFeedUrl("https://www.facebook.com/groups/12345"), false);

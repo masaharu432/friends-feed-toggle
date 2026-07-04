@@ -47,9 +47,9 @@ function isFriendsFeedUrl(href) {
     return false;
   }
   if (!FACEBOOK_HOSTS.test(url.hostname)) return false;
-  if (MOBILE_HOSTS.test(url.hostname)) {
-    return url.pathname === FRIENDS_FEED_MOBILE;
-  }
+  // PC 表示でもホストが m. のままの場合があるため、ホストを問わず
+  // どちらの URL 形式でも友達フィードとみなす
+  if (url.pathname === FRIENDS_FEED_MOBILE) return true;
   return HOME_PATHS.has(url.pathname) && url.searchParams.get("filter") === "friends";
 }
 
