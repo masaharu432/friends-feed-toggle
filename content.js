@@ -89,29 +89,46 @@
 
   // Facebook は短文だけの投稿を特大フォント(約 24px〜)で表示する。
   // 拡大表示と重なると極端に大きくなるので、投稿本文の特大フォントを
-  // 通常サイズに揃える。処理済みカードには印を付けて再走査を避ける。
+  // 通常サイズに揃える。Facebook はスクロールや戻る操作でカードの中身を
+  // 描き直す(こちらの適用が消える)ため、「処理済み」の印は付けず、
+  // 画面付近のカードだけを毎回走査し直す。
   const BIG_FONT_PX = 22;
   const NORMAL_FONT = "15px";
 
+  // ブラウザによっては zoom が computed font-size に掛かって返るため、
+  // 実測でスケールを求めてしきい値を補正する(zoom 値ごとにキャッシュ)
+  let fontScaleCache = { zoom: "", scale: 1 };
+  function fontScale(feed) {
+    const z = zoomFactor();
+    if (fontScaleCache.zoom === z) return fontScaleCache.scale;
+    const probe = document.createElement("span");
+    probe.style.cssText = "font-size:10px;position:absolute;visibility:hidden";
+    probe.textContent = "x";
+    feed.appendChild(probe);
+    const scale = (parseFloat(getComputedStyle(probe).fontSize) || 10) / 10;
+    probe.remove();
+    fontScaleCache = { zoom: z, scale };
+    return scale;
+  }
+
   function normalizeBigText(feed) {
+    const threshold = BIG_FONT_PX * fontScale(feed);
+    const vh = window.innerHeight;
     for (const card of feed.children) {
-      if (card.dataset.fftFontDone) continue;
-      let sawText = false;
+      // 画面の前後 1 画面分だけ処理(遠くのカードは表示時に処理される)
+      const r = card.getBoundingClientRect();
+      if (r.bottom < -vh || r.top > 2 * vh) continue;
       const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
       for (let el = walker.nextNode(); el; el = walker.nextNode()) {
-        if (el.dataset.fftFont) continue;
         const hasDirectText = [...el.childNodes].some(
           (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
         );
         if (!hasDirectText) continue;
-        sawText = true;
-        if (parseFloat(getComputedStyle(el).fontSize) >= BIG_FONT_PX) {
+        if (parseFloat(getComputedStyle(el).fontSize) >= threshold) {
           el.dataset.fftFont = "1";
           el.style.setProperty("font-size", NORMAL_FONT, "important");
         }
       }
-      // テキストが描画済みのカードだけ処理完了にする(描画途中対策)
-      if (sawText) card.dataset.fftFontDone = "1";
     }
   }
 
@@ -119,9 +136,6 @@
     for (const el of document.querySelectorAll("[data-fft-font]")) {
       el.style.removeProperty("font-size");
       delete el.dataset.fftFont;
-    }
-    for (const el of document.querySelectorAll("[data-fft-font-done]")) {
-      delete el.dataset.fftFontDone;
     }
     for (const el of document.querySelectorAll("[data-fft-wide]")) {
       for (const p of [
