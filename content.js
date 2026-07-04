@@ -3,6 +3,7 @@
 (() => {
   const STATE_KEY = "enabled";
   const ZOOM_KEY = "zoomEnabled";
+  const FACTOR_KEY = "zoomFactor";
   // 万一 Facebook 側が URL をホームに書き戻した場合のリロードループ防止:
   // 同一タブで短時間に何度も転送しようとしたら一時的に止める。
   const LOOP_GUARD_KEY = "fftRedirectTimes";
@@ -11,6 +12,7 @@
 
   let enabled = false;
   let zoomEnabled = true;
+  let zoomSetting = "auto";
 
   function loopGuardAllows() {
     try {
@@ -41,6 +43,9 @@
   let zoomedMain = null;
 
   function zoomFactor() {
+    const n = parseFloat(zoomSetting);
+    if (Number.isFinite(n) && n >= 1 && n <= 3) return n.toFixed(2);
+    // 自動: フィード幅(約 700px)が画面幅に収まる倍率
     return Math.min(2, Math.max(1, window.innerWidth / 720)).toFixed(2);
   }
 
@@ -96,17 +101,22 @@
   function onStateLoaded(items) {
     enabled = Boolean(items[STATE_KEY]);
     zoomEnabled = Boolean(items[ZOOM_KEY]);
+    zoomSetting = String(items[FACTOR_KEY]);
     maybeRedirect();
     applyView();
   }
 
-  chrome.storage.local.get({ [STATE_KEY]: false, [ZOOM_KEY]: true }, onStateLoaded);
+  chrome.storage.local.get(
+    { [STATE_KEY]: false, [ZOOM_KEY]: true, [FACTOR_KEY]: "auto" },
+    onStateLoaded
+  );
 
   // ポップアップで切り替えた瞬間に反映する
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (STATE_KEY in changes) enabled = Boolean(changes[STATE_KEY].newValue);
     if (ZOOM_KEY in changes) zoomEnabled = Boolean(changes[ZOOM_KEY].newValue);
+    if (FACTOR_KEY in changes) zoomSetting = String(changes[FACTOR_KEY].newValue);
     maybeRedirect();
     applyView();
   });

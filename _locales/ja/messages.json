@@ -17,6 +17,12 @@
   "zoomLabel": {
     "message": "フィードを拡大表示(PC表示)"
   },
+  "zoomFactorLabel": {
+    "message": "拡大率"
+  },
+  "zoomAuto": {
+    "message": "自動(画面幅に合わせる)"
+  },
   "diagNoTab": {
     "message": "Facebookのタブで開くと動作状態を表示します"
   },

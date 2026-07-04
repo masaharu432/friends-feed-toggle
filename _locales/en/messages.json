@@ -17,6 +17,12 @@
   "zoomLabel": {
     "message": "Enlarge feed (desktop view)"
   },
+  "zoomFactorLabel": {
+    "message": "Zoom level"
+  },
+  "zoomAuto": {
+    "message": "Auto (fit to screen)"
+  },
   "diagNoTab": {
     "message": "Open this on a Facebook tab to see status"
   },
