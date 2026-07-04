@@ -2,13 +2,15 @@
 
 ## Microsoft Edge Add-ons(登録無料・こちらを先に)
 
-出典: [Publish a Microsoft Edge extension](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension) /
-[Register as a developer](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/create-dev-account)
+出典(公式ドキュメント):
+
+- 公開手順: https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension
+- 開発者登録: https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/create-dev-account
 
 1. **開発者登録(無料・初回のみ)**: Microsoft アカウント(Outlook/Live/Hotmail
-   の個人アカウント)で
-   [Partner Center の Microsoft Edge プログラム](https://partner.microsoft.com/dashboard/microsoftedge/public/login)
-   にサインインして登録
+   の個人アカウント)で下記 URL にサインインして登録
+
+   https://partner.microsoft.com/dashboard/microsoftedge/public/login
 2. 「新しい拡張機能」→ **zip をアップロード**(`dist/friends-feed-toggle-<version>.zip`)
 3. **Availability**: 公開範囲 Public、対象市場は全マーケットで OK
 4. **Properties**: カテゴリ = Social & communication、
@@ -28,8 +30,10 @@
 ## Chrome Web Store(初回 $5)
 
 1. `python3 tools/build.py` で zip を作成
-2. [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole)
-   に登録(初回のみ $5)し、「新しいアイテム」で zip をアップロード
+2. Chrome Web Store Developer Dashboard に登録(初回のみ $5)し、
+   「新しいアイテム」で zip をアップロード
+
+   https://chrome.google.com/webstore/devconsole
 3. ストア掲載情報に下記の掲載文を貼り付け、スクリーンショット(1280×800)を添付
 4. プライバシー欄: 「ユーザーデータを収集しない」を選択。
    権限の理由: `storage` = 設定の保存。
