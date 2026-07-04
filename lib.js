@@ -1,8 +1,11 @@
 "use strict";
 
 // Facebook 標準の「友達フィード」(時系列・友達の投稿のみ)。
-// Facebook 側でこの URL が変わった場合はここだけ直せばよい。
-const FRIENDS_FEED_QUERY = "?filter=friends&sk=h_chr";
+// モバイル版(m.)はクエリパラメータを無視するため /feeds/friends を使う。
+// Facebook 側で URL が変わった場合はここだけ直せばよい。
+const FRIENDS_FEED_DESKTOP = "/?filter=friends&sk=h_chr";
+const FRIENDS_FEED_MOBILE = "/feeds/friends";
+const MOBILE_HOSTS = /^(m|touch|mbasic)\./;
 
 const FACEBOOK_HOSTS = /^(www|web|m|touch|mbasic)\.facebook\.com$/;
 const HOME_PATHS = new Set(["/", "/home.php"]);
@@ -27,7 +30,10 @@ function getRedirectTarget(href) {
   if (url.searchParams.has("filter")) return null;
   const sk = url.searchParams.get("sk");
   if (sk !== null && !HOME_SK_VALUES.has(sk)) return null;
-  return url.origin + "/" + FRIENDS_FEED_QUERY;
+  const feedPath = MOBILE_HOSTS.test(url.hostname)
+    ? FRIENDS_FEED_MOBILE
+    : FRIENDS_FEED_DESKTOP;
+  return url.origin + feedPath;
 }
 
 if (typeof module !== "undefined" && module.exports) {

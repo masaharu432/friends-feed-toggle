@@ -46,15 +46,26 @@ test("facebook.com 以外のホストは転送しない", () => {
   assert.equal(getRedirectTarget("https://example.com/"), null);
 });
 
-test("m / web / touch サブドメインはオリジンを維持して転送する", () => {
+test("モバイル系ホスト(m / touch)は /feeds/friends へ転送する", () => {
   assert.equal(
     getRedirectTarget("https://m.facebook.com/"),
-    "https://m.facebook.com/?filter=friends&sk=h_chr"
+    "https://m.facebook.com/feeds/friends"
   );
+  assert.equal(
+    getRedirectTarget("https://touch.facebook.com/"),
+    "https://touch.facebook.com/feeds/friends"
+  );
+});
+
+test("デスクトップ系ホスト(web)はクエリ形式のままオリジンを維持する", () => {
   assert.equal(
     getRedirectTarget("https://web.facebook.com/home.php"),
     "https://web.facebook.com/?filter=friends&sk=h_chr"
   );
+});
+
+test("転送先の /feeds/friends 自体は転送しない(ループ防止)", () => {
+  assert.equal(getRedirectTarget("https://m.facebook.com/feeds/friends"), null);
 });
 
 test("不正な URL は null を返す", () => {
