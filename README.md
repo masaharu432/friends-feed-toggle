@@ -8,6 +8,13 @@ Chrome 拡張です。ワンタップで ON/OFF を切り替えられます。
 「PC 版サイト」表示と組み合わせると、スマホでも友達の近況だけを
 大きな文字で快適に読めます。
 
+> [!IMPORTANT]
+> **Facebook のモバイル版ページ(m.facebook.com のスマホ向け表示)では
+> この拡張は効きません。** モバイル版は URL でのページ指定を受け付けない
+> 作りのためです。スマホのブラウザで使うときは、
+> ①ブラウザのメニューで **「PC 版サイト」(Desktop site)を有効**にし、
+> ②PC 版の URL **`https://www.facebook.com/`** にアクセスしてください。
+
 ## 機能
 
 - **友達フィードへ自動転送** — ON の間、facebook.com のホームを開くと
@@ -52,7 +59,9 @@ Facebook 側で友達フィードの URL が変わった場合は
    (または Releases の zip をダウンロード)
 2. ブラウザの `chrome://extensions` でデベロッパーモードを ON にし、
    「Load *.zip」で zip を読み込む
-3. Facebook を「PC 版サイト」表示にすると拡大表示が使えます
+3. ブラウザのメニューで **「PC 版サイト」(Desktop site)を有効**にして
+   `https://www.facebook.com/` を開く(モバイル版ページでは動きません。
+   上の IMPORTANT 参照)
 
 ## 使い方
 
