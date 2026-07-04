@@ -49,6 +49,31 @@
     return Math.min(2, Math.max(1, window.innerWidth / 720)).toFixed(2);
   }
 
+  // 投稿カードの列は Facebook 側で固定幅になっているため、
+  // フィード(role=feed)から main までの祖先の幅制限を外して
+  // 画面いっぱいに広げる。外した要素には印を付けて復元できるようにする。
+  function widenFeed(mainEl) {
+    const feed = mainEl.querySelector('[role="feed"]');
+    if (!feed) return;
+    let el = feed;
+    while (el && el !== mainEl) {
+      if (!el.dataset.fftWide) {
+        el.dataset.fftWide = "1";
+        el.style.setProperty("width", "100%", "important");
+        el.style.setProperty("max-width", "none", "important");
+      }
+      el = el.parentElement;
+    }
+  }
+
+  function unwidenFeed() {
+    for (const el of document.querySelectorAll("[data-fft-wide]")) {
+      el.style.removeProperty("width");
+      el.style.removeProperty("max-width");
+      delete el.dataset.fftWide;
+    }
+  }
+
   function findSidebar() {
     // フィード切り替えリンク(filter=...)を 2 つ以上含み、かつ
     // フィード本体(role=main)を含まない最小の祖先 = 左サイドバー。
@@ -89,6 +114,7 @@
           main.style.zoom = desired;
         }
         zoomedMain = main;
+        widenFeed(main);
       }
     } else {
       if (hiddenSidebar) {
@@ -99,6 +125,7 @@
         zoomedMain.style.removeProperty("zoom");
         zoomedMain = null;
       }
+      unwidenFeed();
     }
   }
 
