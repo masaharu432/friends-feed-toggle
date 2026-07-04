@@ -1,0 +1,20 @@
+{
+  "appName": {
+    "message": "Friends Feed Toggle for Facebook™"
+  },
+  "appDesc": {
+    "message": "One-tap switch that redirects the Facebook home feed to the chronological Friends feed. No tracking, no data collection."
+  },
+  "popupTitle": {
+    "message": "Friends Feed Toggle"
+  },
+  "stateOn": {
+    "message": "ON — redirecting to Friends feed"
+  },
+  "stateOff": {
+    "message": "OFF — normal feed"
+  },
+  "popupNote": {
+    "message": "While ON, opening the Facebook home page takes you to the built-in Friends feed (chronological, friends only)."
+  }
+}

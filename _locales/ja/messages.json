@@ -1,0 +1,20 @@
+{
+  "appName": {
+    "message": "Friends Feed Toggle for Facebook™"
+  },
+  "appDesc": {
+    "message": "ワンタップで Facebook のホームを標準の友達フィード(時系列・友達の投稿のみ)へ自動転送。トラッキングなし・データ収集なし。"
+  },
+  "popupTitle": {
+    "message": "友達フィード切り替え"
+  },
+  "stateOn": {
+    "message": "ON — 友達フィードへ転送中"
+  },
+  "stateOff": {
+    "message": "OFF — 通常のフィード"
+  },
+  "popupNote": {
+    "message": "ON の間、Facebook のホームを開くと標準の「友達」フィード(時系列・友達の投稿のみ)が表示されます。"
+  }
+}
