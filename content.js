@@ -2,6 +2,7 @@
 
 (() => {
   const STATE_KEY = "enabled";
+  const ZOOM_KEY = "zoomEnabled";
   // 万一 Facebook 側が URL をホームに書き戻した場合のリロードループ防止:
   // 同一タブで短時間に何度も転送しようとしたら一時的に止める。
   const LOOP_GUARD_KEY = "fftRedirectTimes";
@@ -9,6 +10,7 @@
   const LOOP_GUARD_MAX = 2;
 
   let enabled = false;
+  let zoomEnabled = true;
 
   function loopGuardAllows() {
     try {
@@ -32,16 +34,35 @@
     location.replace(target);
   }
 
-  chrome.storage.local.get({ [STATE_KEY]: false }, (items) => {
-    enabled = Boolean(items[STATE_KEY]);
-    maybeRedirect();
-  });
+  // 拡大表示: 友達フィード表示中だけ html にクラスを付け、
+  // フィード幅(約 700px)が画面幅に収まる倍率を CSS 変数で渡す。
+  function updateZoomVar() {
+    const z = Math.min(2, Math.max(1, window.innerWidth / 720));
+    document.documentElement.style.setProperty("--fft-zoom", z.toFixed(2));
+  }
 
-  // ポップアップで ON にした瞬間、ホーム表示中なら即転送する
-  chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || !(STATE_KEY in changes)) return;
-    enabled = Boolean(changes[STATE_KEY].newValue);
+  function applyView() {
+    const active = enabled && zoomEnabled && isFriendsFeedUrl(location.href);
+    document.documentElement.classList.toggle("fft-zoom", active);
+    if (active) updateZoomVar();
+  }
+
+  function onStateLoaded(items) {
+    enabled = Boolean(items[STATE_KEY]);
+    zoomEnabled = Boolean(items[ZOOM_KEY]);
     maybeRedirect();
+    applyView();
+  }
+
+  chrome.storage.local.get({ [STATE_KEY]: false, [ZOOM_KEY]: true }, onStateLoaded);
+
+  // ポップアップで切り替えた瞬間に反映する
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local") return;
+    if (STATE_KEY in changes) enabled = Boolean(changes[STATE_KEY].newValue);
+    if (ZOOM_KEY in changes) zoomEnabled = Boolean(changes[ZOOM_KEY].newValue);
+    maybeRedirect();
+    applyView();
   });
 
   // Facebook は SPA なので、ロゴ/ホームボタンによる画面内遷移は
@@ -51,7 +72,14 @@
     if (location.href !== lastHref) {
       lastHref = location.href;
       maybeRedirect();
+      applyView();
     }
   }, 400);
-  window.addEventListener("popstate", maybeRedirect);
+  window.addEventListener("popstate", () => {
+    maybeRedirect();
+    applyView();
+  });
+  window.addEventListener("resize", () => {
+    if (document.documentElement.classList.contains("fft-zoom")) updateZoomVar();
+  });
 })();

@@ -8,6 +8,7 @@ FILES = [
     "manifest.json",
     "lib.js",
     "content.js",
+    "content.css",
     "background.js",
     "popup.html",
     "popup.css",

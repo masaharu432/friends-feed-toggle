@@ -36,6 +36,23 @@ function getRedirectTarget(href) {
   return url.origin + feedPath;
 }
 
+/**
+ * href が友達フィード表示中の URL なら true(拡大表示の適用判定に使う)。
+ */
+function isFriendsFeedUrl(href) {
+  let url;
+  try {
+    url = new URL(href);
+  } catch {
+    return false;
+  }
+  if (!FACEBOOK_HOSTS.test(url.hostname)) return false;
+  if (MOBILE_HOSTS.test(url.hostname)) {
+    return url.pathname === FRIENDS_FEED_MOBILE;
+  }
+  return HOME_PATHS.has(url.pathname) && url.searchParams.get("filter") === "friends";
+}
+
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { getRedirectTarget };
+  module.exports = { getRedirectTarget, isFriendsFeedUrl };
 }

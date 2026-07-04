@@ -96,6 +96,33 @@ h1 {
   min-height: 1.2em;
 }
 
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  font-size: 12px;
+  cursor: pointer;
+  padding-top: 4px;
+  border-top: 1px solid var(--track-off);
+}
+
+.switch.small .track {
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+}
+
+.switch.small .thumb {
+  width: 16px;
+  height: 16px;
+}
+
+.switch.small input:checked + .track .thumb {
+  transform: translateX(18px);
+}
+
 body.on .state {
   color: var(--accent);
 }

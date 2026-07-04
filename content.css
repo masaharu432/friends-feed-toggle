@@ -1,0 +1,13 @@
+/* 拡大表示(html に fft-zoom クラスがあるときだけ有効)。
+   友達フィードのタブ一覧(左サイドバー)を隠し、フィード本体を
+   --fft-zoom 倍に拡大する。セレクタは ARIA ロールと
+   フィード切り替えリンクの href に依存しており、Facebook の
+   細かい class 名には依存しない。 */
+
+html.fft-zoom [role="navigation"]:has(a[href*="filter=friends"]) {
+  display: none !important;
+}
+
+html.fft-zoom [role="main"] {
+  zoom: var(--fft-zoom, 1.4);
+}

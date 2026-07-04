@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { getRedirectTarget } = require("../lib.js");
+const { getRedirectTarget, isFriendsFeedUrl } = require("../lib.js");
 
 const FRIENDS = "https://www.facebook.com/?filter=friends&sk=h_chr";
 
@@ -70,4 +70,13 @@ test("転送先の /feeds/friends 自体は転送しない(ループ防止)", ()
 
 test("不正な URL は null を返す", () => {
   assert.equal(getRedirectTarget("not a url"), null);
+});
+
+test("isFriendsFeedUrl: 友達フィード表示中の URL だけ true", () => {
+  assert.equal(isFriendsFeedUrl("https://www.facebook.com/?filter=friends&sk=h_chr"), true);
+  assert.equal(isFriendsFeedUrl("https://m.facebook.com/feeds/friends"), true);
+  assert.equal(isFriendsFeedUrl("https://www.facebook.com/"), false);
+  assert.equal(isFriendsFeedUrl("https://www.facebook.com/?filter=groups&sk=h_chr"), false);
+  assert.equal(isFriendsFeedUrl("https://www.facebook.com/groups/12345"), false);
+  assert.equal(isFriendsFeedUrl("not a url"), false);
 });

@@ -14,6 +14,9 @@
   "stateOff": {
     "message": "OFF — 通常のフィード"
   },
+  "zoomLabel": {
+    "message": "フィードを拡大表示(PC表示)"
+  },
   "popupNote": {
     "message": "ON の間、Facebook のホームを開くと標準の「友達」フィード(時系列・友達の投稿のみ)が表示されます。"
   }
