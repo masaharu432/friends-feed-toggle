@@ -7,3 +7,13 @@
 html.fft-zoom [role="navigation"]:has(a[href*="filter=friends"]) {
   display: none !important;
 }
+
+/* Android 版 Chromium の「フォントブースト」(PC 表示ページの一部の
+   テキストだけ自動で拡大する機能)を無効化する。これが有効だと
+   カードによってフォントが勝手に大きくなったり、スクロールで戻った
+   ときに突然大きくなったりする。 */
+html.fft-zoom,
+html.fft-zoom * {
+  -webkit-text-size-adjust: 100% !important;
+  text-size-adjust: 100% !important;
+}
