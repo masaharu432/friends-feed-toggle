@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "__MSG_appName__",
   "description": "__MSG_appDesc__",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "default_locale": "en",
   "icons": {
     "16": "icons/icon16.png",
@@ -11,13 +11,6 @@
     "128": "icons/icon128.png"
   },
   "permissions": ["storage"],
-  "host_permissions": [
-    "https://www.facebook.com/*",
-    "https://web.facebook.com/*",
-    "https://m.facebook.com/*",
-    "https://touch.facebook.com/*",
-    "https://mbasic.facebook.com/*"
-  ],
   "options_ui": {
     "page": "popup.html",
     "open_in_tab": true

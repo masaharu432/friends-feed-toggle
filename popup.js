@@ -64,17 +64,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       return;
     }
     const mark = (ok) => (ok ? "✓" : "✕");
-    const base =
+    diag.textContent =
       `${chrome.i18n.getMessage("diagFeed")}: ${mark(res.friendsFeed)}  ` +
       `${chrome.i18n.getMessage("diagSidebar")}: ${mark(res.sidebarHidden)}  ` +
-      `(links:${res.linkCount} main:${res.hasMain ? 1 : 0} found:${res.sidebarFound ? 1 : 0}` +
-      (res.cssZoom > 1 ? ` cssZoom:${res.cssZoom}` : "") +
-      ")";
-    diag.textContent = base;
-    chrome.tabs.getZoom(tab.id, (z) => {
-      if (chrome.runtime.lastError || !z) return;
-      diag.textContent =
-        base + ` ${chrome.i18n.getMessage("diagZoom")}: ${Math.round(z * 100)}%`;
-    });
+      `(links:${res.linkCount} main:${res.hasMain ? 1 : 0} found:${res.sidebarFound ? 1 : 0})`;
   });
 });

@@ -3,6 +3,7 @@
 (() => {
   const STATE_KEY = "enabled";
   const ZOOM_KEY = "zoomEnabled";
+  const FACTOR_KEY = "zoomFactor";
   // 万一 Facebook 側が URL をホームに書き戻した場合のリロードループ防止:
   // 同一タブで短時間に何度も転送しようとしたら一時的に止める。
   const LOOP_GUARD_KEY = "fftRedirectTimes";
@@ -11,10 +12,7 @@
 
   let enabled = false;
   let zoomEnabled = true;
-  // 拡大はブラウザ標準のページズーム(background が chrome.tabs.setZoom で
-  // 適用)が基本。未対応ブラウザでは background からこの値が指示され、
-  // CSS zoom でフォールバックする。0 はフォールバック不使用。
-  let cssZoom = 0;
+  let zoomSetting = "1.3";
 
   function loopGuardAllows() {
     try {
@@ -39,6 +37,16 @@
   }
 
   // ---- 友達フィード表示中のレイアウト調整 ----
+  // ブラウザ標準のページズームはレイアウト幅ごと拡大して横スクロールに
+  // なってしまう(PC 版 Facebook は幅固定のため)ので、フィード列だけを
+  // CSS zoom で拡大し、幅は画面に合わせ直す方式をとる。
+
+  function zoomFactor() {
+    const n = parseFloat(zoomSetting);
+    if (Number.isFinite(n) && n >= 1 && n <= 3) return n.toFixed(2);
+    return "1.30";
+  }
+
   // 画面端との間に残す余白
   const EDGE_GAP = "8px";
 
@@ -74,7 +82,50 @@
     }
   }
 
-  function unwidenFeed() {
+  // Facebook は短文だけの投稿を特大フォント(約 24px〜)で表示する。
+  // 拡大表示と重なると極端に大きくなるので、投稿本文の特大フォントを
+  // 通常サイズに揃える。
+  const BIG_FONT_PX = 22;
+  const NORMAL_FONT = "15px";
+
+  // ブラウザによっては zoom が computed font-size に掛かって返るため、
+  // 実測でスケールを求めてしきい値を補正する(zoom 値ごとにキャッシュ)
+  let fontScaleCache = { zoom: "", scale: 1 };
+  function fontScale(feed) {
+    const z = zoomFactor();
+    if (fontScaleCache.zoom === z) return fontScaleCache.scale;
+    const probe = document.createElement("span");
+    probe.style.cssText = "font-size:10px;position:absolute;visibility:hidden";
+    probe.textContent = "x";
+    feed.appendChild(probe);
+    const scale = (parseFloat(getComputedStyle(probe).fontSize) || 10) / 10;
+    probe.remove();
+    fontScaleCache = { zoom: z, scale };
+    return scale;
+  }
+
+  function normalizeBigText(feed) {
+    const threshold = BIG_FONT_PX * fontScale(feed);
+    const vh = window.innerHeight;
+    for (const card of feed.children) {
+      // 画面の前後 1 画面分だけ処理(遠くのカードは表示時に処理される)
+      const r = card.getBoundingClientRect();
+      if (r.bottom < -vh || r.top > 2 * vh) continue;
+      const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
+      for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+        const hasDirectText = [...el.childNodes].some(
+          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
+        );
+        if (!hasDirectText) continue;
+        if (parseFloat(getComputedStyle(el).fontSize) >= threshold) {
+          el.dataset.fftFont = "1";
+          el.style.setProperty("font-size", NORMAL_FONT, "important");
+        }
+      }
+    }
+  }
+
+  function restoreFeed() {
     for (const el of document.querySelectorAll("[data-fft-wide]")) {
       for (const p of [
         "width",
@@ -88,11 +139,14 @@
       }
       delete el.dataset.fftWide;
     }
+    for (const el of document.querySelectorAll("[data-fft-font]")) {
+      el.style.removeProperty("font-size");
+      delete el.dataset.fftFont;
+    }
   }
 
   function findSidebar() {
-    // フィード切り替えリンク(filter=...)を 2 つ以上含み、かつ
-    // フィード本体(role=main)を含まない最小の祖先 = 左サイドバー。
+    // フィード切り替えリンク(filter=...)を含む左サイドバーを探す。
     // 本文やヘッダー内の紛れ込みリンクは除外する。
     const main = document.querySelector('[role="main"]');
     const banner = document.querySelector('[role="banner"]');
@@ -117,8 +171,39 @@
   let hiddenSidebar = null;
   let zoomedMain = null;
 
+  // フィードの描き直しを描画前に検知して即座に再適用する
+  // (ポーリングだけだと、描き直された特大フォントが一瞬見えてしまう)
+  let feedObserver = null;
+  let observedFeed = null;
+
+  function ensureFeedObserver(mainEl) {
+    const feed = mainEl.querySelector('[role="feed"]');
+    if (!feed || feed === observedFeed) return;
+    if (feedObserver) feedObserver.disconnect();
+    feedObserver = new MutationObserver(() => {
+      if (!isActive()) return;
+      const main = document.querySelector('[role="main"]');
+      if (!main) return;
+      widenFeed(main);
+      const f = main.querySelector('[role="feed"]');
+      if (f) normalizeBigText(f);
+    });
+    feedObserver.observe(feed, { childList: true, subtree: true });
+    observedFeed = feed;
+  }
+
+  function dropFeedObserver() {
+    if (feedObserver) feedObserver.disconnect();
+    feedObserver = null;
+    observedFeed = null;
+  }
+
+  function isActive() {
+    return enabled && zoomEnabled && isFriendsFeedUrl(location.href);
+  }
+
   function applyView() {
-    const active = enabled && zoomEnabled && isFriendsFeedUrl(location.href);
+    const active = isActive();
     document.documentElement.classList.toggle("fft-zoom", active);
 
     if (active) {
@@ -130,17 +215,18 @@
       }
       const main = document.querySelector('[role="main"]');
       if (main) {
-        if (cssZoom > 1) {
-          if (Math.abs(parseFloat(main.style.zoom || "1") - cssZoom) > 0.001) {
-            main.style.zoom = String(cssZoom);
-          }
-        } else if (main.style.zoom) {
-          main.style.removeProperty("zoom");
+        const desired = zoomFactor();
+        if (Math.abs(parseFloat(main.style.zoom || "1") - parseFloat(desired)) > 0.001) {
+          main.style.zoom = desired;
         }
         zoomedMain = main;
         widenFeed(main);
+        const feed = main.querySelector('[role="feed"]');
+        if (feed) normalizeBigText(feed);
+        ensureFeedObserver(main);
       }
     } else {
+      dropFeedObserver();
       if (hiddenSidebar) {
         hiddenSidebar.style.removeProperty("display");
         hiddenSidebar = null;
@@ -149,32 +235,36 @@
         zoomedMain.style.removeProperty("zoom");
         zoomedMain = null;
       }
-      unwidenFeed();
+      restoreFeed();
     }
   }
 
   function onStateLoaded(items) {
     enabled = Boolean(items[STATE_KEY]);
     zoomEnabled = Boolean(items[ZOOM_KEY]);
+    zoomSetting = String(items[FACTOR_KEY]);
     maybeRedirect();
     applyView();
   }
 
-  chrome.storage.local.get({ [STATE_KEY]: false, [ZOOM_KEY]: true }, onStateLoaded);
+  chrome.storage.local.get(
+    { [STATE_KEY]: false, [ZOOM_KEY]: true, [FACTOR_KEY]: "1.3" },
+    onStateLoaded
+  );
 
   // ポップアップで切り替えた瞬間に反映する
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (STATE_KEY in changes) enabled = Boolean(changes[STATE_KEY].newValue);
     if (ZOOM_KEY in changes) zoomEnabled = Boolean(changes[ZOOM_KEY].newValue);
+    if (FACTOR_KEY in changes) zoomSetting = String(changes[FACTOR_KEY].newValue);
     maybeRedirect();
     applyView();
   });
 
   // Facebook は SPA なので、ロゴ/ホームボタンによる画面内遷移は
   // ページ読み込みを起こさない。URL の変化を監視して検知する。
-  // applyView は React の再描画で要素が入れ替わっても追従できるよう
-  // 毎回呼ぶ(対象が見つかり済みならほぼ何もしないので軽い)。
+  // applyView はフォールバックとして定期的にも呼ぶ(通常は observer が先に処理)。
   let lastHref = location.href;
   setInterval(() => {
     if (location.href !== lastHref) {
@@ -188,24 +278,17 @@
     applyView();
   });
 
-  // background / ポップアップからのメッセージ
+  // ポップアップからの状態問い合わせ(診断表示用)
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-    if (!msg) return;
-    if (msg.type === "fft-css-zoom") {
-      // ブラウザズーム非対応時のフォールバック指示(0 で解除)
-      cssZoom = Number(msg.factor) > 1 ? Number(msg.factor) : 0;
-      applyView();
-      return;
-    }
-    if (msg.type === "fft-status") {
-      sendResponse({
-        friendsFeed: isFriendsFeedUrl(location.href),
-        sidebarHidden: Boolean(hiddenSidebar && hiddenSidebar.isConnected),
-        sidebarFound: Boolean(findSidebar() || (hiddenSidebar && hiddenSidebar.isConnected)),
-        cssZoom,
-        linkCount: document.querySelectorAll('a[href*="filter="]').length,
-        hasMain: Boolean(document.querySelector('[role="main"]')),
-      });
-    }
+    if (!msg || msg.type !== "fft-status") return;
+    sendResponse({
+      friendsFeed: isFriendsFeedUrl(location.href),
+      sidebarHidden: Boolean(hiddenSidebar && hiddenSidebar.isConnected),
+      sidebarFound: Boolean(
+        findSidebar() || (hiddenSidebar && hiddenSidebar.isConnected)
+      ),
+      linkCount: document.querySelectorAll('a[href*="filter="]').length,
+      hasMain: Boolean(document.querySelector('[role="main"]')),
+    });
   });
 })();
