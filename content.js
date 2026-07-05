@@ -484,16 +484,46 @@
   const INPUT_SELECTOR =
     'textarea, input, [contenteditable="true"], [role="textbox"]';
 
+  // ダイアログ下部にピン留めされた入力バーはスクロールでは動かないため、
+  // ダイアログ(なければページ全体)を transform で持ち上げる。
+  let liftTarget = null;
+  let liftPx = 0;
+
+  function applyLift(target, px) {
+    if (liftTarget && liftTarget !== target) {
+      liftTarget.style.removeProperty("transform");
+    }
+    if (px > 0.5) {
+      target.style.setProperty(
+        "transform",
+        `translateY(-${px.toFixed(0)}px)`,
+        "important"
+      );
+      liftTarget = target;
+      liftPx = px;
+    } else {
+      target.style.removeProperty("transform");
+      liftTarget = null;
+      liftPx = 0;
+    }
+  }
+
+  function clearLift() {
+    if (liftTarget) applyLift(liftTarget, 0);
+  }
+
   function keepInputVisible() {
     if (!enabled) return;
     const el = document.activeElement;
     if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) return;
     const vv = window.visualViewport;
     const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-    const r = el.getBoundingClientRect();
-    const delta = r.bottom - (visibleBottom - 16);
+    const margin = 16;
+    let r = el.getBoundingClientRect();
+    let delta = r.bottom - (visibleBottom - margin);
     if (delta <= 0) return;
-    // 入力欄を内包する一番近いスクロール可能な祖先を探してスクロールする
+
+    // まずスクロールで見せられる分は見せる
     let sc = el.parentElement;
     while (sc && sc !== document.body) {
       const cs = getComputedStyle(sc);
@@ -507,9 +537,21 @@
     }
     if (sc && sc !== document.body) {
       sc.scrollTop += delta;
-    } else {
-      window.scrollBy(0, delta);
+      r = el.getBoundingClientRect();
+      delta = r.bottom - (visibleBottom - margin);
+      if (delta <= 0) return;
     }
+
+    // それでも隠れている = 固定配置なので、ダイアログごと持ち上げる
+    const dialog = el.closest('[role="dialog"]');
+    const target = dialog || document.body;
+    applyLift(target, (liftTarget === target ? liftPx : 0) + delta);
+  }
+
+  function onKeyboardMaybeClosed() {
+    const vv = window.visualViewport;
+    // キーボードが閉じた(可視領域がほぼ全画面に戻った)ら持ち上げを解除
+    if (!vv || vv.height >= window.innerHeight - 60) clearLift();
   }
 
   window.addEventListener("focusin", () => {
@@ -517,9 +559,18 @@
     setTimeout(keepInputVisible, 300);
     setTimeout(keepInputVisible, 700);
   });
+  window.addEventListener("focusout", () => {
+    setTimeout(() => {
+      const el = document.activeElement;
+      if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) clearLift();
+    }, 200);
+  });
   if (window.visualViewport) {
     window.visualViewport.addEventListener("resize", () => {
-      setTimeout(keepInputVisible, 50);
+      setTimeout(() => {
+        onKeyboardMaybeClosed();
+        keepInputVisible();
+      }, 50);
     });
   }
 
