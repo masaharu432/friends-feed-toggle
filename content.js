@@ -478,117 +478,80 @@
 
   // ---- コメント入力欄をソフトウェアキーボードに隠させない ----
   // PC 表示のページはスマホのキーボードを想定しておらず、キーボードが
-  // 開いても入力欄が見える位置へスクロールされないことがある。
-  // フォーカス時とキーボード開閉(visualViewport の縮小)時に、
-  // 入力欄がキーボードの上に見えるようスクロールして補正する。
+  // 開いても入力欄が可視領域へスクロールされない。さらに Facebook は
+  // 文字入力のたびに再描画してスクロール位置を戻すため、一度スクロール
+  // しても再び隠れてしまう。そこで「入力欄が隠れていたら見える位置まで
+  // スクロールする」処理を、フォーカス時・文字入力時・キーボード開閉時に
+  // 繰り返し適用する。入力欄がすでに見えているとき(自分でスクロールして
+  // 読んでいるとき等)は何もしないので、ユーザーの操作を邪魔しない。
   const INPUT_SELECTOR =
     'textarea, input, [contenteditable="true"], [role="textbox"]';
+  const KB_MARGIN = 12;
 
-  // キーボードが開いている間、入力欄を含む「入力バー」を画面下部に
-  // position:fixed で貼り付けてキーボードのすぐ上に固定する。
-  // スクロールや Facebook の再描画に影響されない。
-  let pinnedBar = null;
-  let pinnedPlaceholder = null;
-  const pinnedSaved = {};
-
-  // 入力欄から上へたどり、入力バーらしい適度な高さのコンテナを選ぶ
-  function findInputBar(el) {
-    let bar = el;
-    let node = el.parentElement;
-    for (let i = 0; node && i < 6; i++) {
-      const h = node.getBoundingClientRect().height;
-      if (h > 0 && h < 160) bar = node;
-      else if (h >= 160) break;
-      node = node.parentElement;
-    }
-    return bar;
-  }
-
-  function pinBar() {
-    if (!enabled) return;
-    const el = document.activeElement;
-    if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) return;
+  function keyboardOpen() {
     const vv = window.visualViewport;
-    if (!vv) return;
-    // キーボードが出ていない(可視領域が縮んでいない)なら何もしない
-    if (vv.height >= window.innerHeight - 60) return;
+    return Boolean(vv && vv.height < window.innerHeight - 80);
+  }
 
-    const bar = findInputBar(el);
-    if (pinnedBar && pinnedBar !== bar) unpinBar();
+  function focusedInput() {
+    const el = document.activeElement;
+    return el && el.matches && el.matches(INPUT_SELECTOR) ? el : null;
+  }
 
-    const bottomGap = window.innerHeight - (vv.offsetTop + vv.height);
-    if (pinnedBar !== bar) {
-      const r = bar.getBoundingClientRect();
-      // 背景が透明だと下が透けるので、近い祖先の実背景色を拾う
-      let bg = "";
-      let bn = bar;
-      for (let i = 0; bn && i < 8; i++) {
-        const c = getComputedStyle(bn).backgroundColor;
-        if (c && c !== "rgba(0, 0, 0, 0)" && c !== "transparent") {
-          bg = c;
-          break;
-        }
-        bn = bn.parentElement;
+  function scrollableAncestors(el) {
+    const list = [];
+    let n = el.parentElement;
+    while (n && n !== document.documentElement) {
+      const cs = getComputedStyle(n);
+      if (
+        /(auto|scroll)/.test(cs.overflowY) &&
+        n.scrollHeight > n.clientHeight + 1
+      ) {
+        list.push(n);
       }
-      // 元の場所に高さを保持するプレースホルダを置いてレイアウト崩れを防ぐ
-      pinnedPlaceholder = document.createElement("div");
-      pinnedPlaceholder.style.height = r.height + "px";
-      pinnedSaved.position = bar.style.position;
-      pinnedSaved.left = bar.style.left;
-      pinnedSaved.right = bar.style.right;
-      pinnedSaved.bottom = bar.style.bottom;
-      pinnedSaved.zIndex = bar.style.zIndex;
-      pinnedSaved.width = bar.style.width;
-      bar.parentElement.insertBefore(pinnedPlaceholder, bar);
-      bar.style.setProperty("position", "fixed", "important");
-      bar.style.setProperty("left", "0", "important");
-      bar.style.setProperty("right", "0", "important");
-      bar.style.setProperty("width", "100%", "important");
-      bar.style.setProperty("z-index", "2147483646", "important");
-      bar.style.setProperty("background", bg || "#242526", "important");
-      pinnedBar = bar;
+      n = n.parentElement;
     }
-    // キーボード高さに追従して位置を更新
-    pinnedBar.style.setProperty("bottom", bottomGap + "px", "important");
+    return list;
   }
 
-  function unpinBar() {
-    if (!pinnedBar) return;
-    for (const p of [
-      "position",
-      "left",
-      "right",
-      "bottom",
-      "z-index",
-      "width",
-      "background",
-    ]) {
-      pinnedBar.style.removeProperty(p);
+  function bringInputUp() {
+    if (!enabled) return;
+    const el = focusedInput();
+    if (!el || !keyboardOpen()) return;
+    const vv = window.visualViewport;
+    const visibleBottom = vv.offsetTop + vv.height;
+    let r = el.getBoundingClientRect();
+    let delta = r.bottom - (visibleBottom - KB_MARGIN);
+    if (delta <= 1) return; // すでに見えている → 何もしない(操作を邪魔しない)
+    // スクロール可能な祖先を内側から順に動かして入力欄を持ち上げる
+    for (const sc of scrollableAncestors(el)) {
+      sc.scrollTop = Math.min(sc.scrollTop + delta, sc.scrollHeight);
+      r = el.getBoundingClientRect();
+      delta = r.bottom - (visibleBottom - KB_MARGIN);
+      if (delta <= 1) return;
     }
-    if (pinnedSaved.position) pinnedBar.style.position = pinnedSaved.position;
-    if (pinnedPlaceholder && pinnedPlaceholder.parentElement) {
-      pinnedPlaceholder.remove();
-    }
-    pinnedBar = null;
-    pinnedPlaceholder = null;
+    // ページ全体もスクロール
+    if (delta > 1) window.scrollBy(0, delta);
   }
 
-  window.addEventListener("focusin", () => {
-    setTimeout(pinBar, 300);
-    setTimeout(pinBar, 700);
+  // 文字入力ごとに Facebook がスクロールを戻すので、入力を受けて再適用する
+  document.addEventListener("input", () => {
+    if (focusedInput()) {
+      bringInputUp();
+      // 再描画が入力後に走る場合に備えて少し遅れても一度試す
+      requestAnimationFrame(bringInputUp);
+    }
   });
-  window.addEventListener("focusout", () => {
-    setTimeout(() => {
-      const el = document.activeElement;
-      if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) unpinBar();
-    }, 200);
+  document.addEventListener("keyup", () => {
+    if (focusedInput()) bringInputUp();
+  });
+  window.addEventListener("focusin", () => {
+    if (!focusedInput()) return;
+    // キーボードが出きるタイミングは端末差があるので複数回試す
+    for (const t of [250, 500, 800]) setTimeout(bringInputUp, t);
   });
   if (window.visualViewport) {
-    const onVV = () => {
-      const vv = window.visualViewport;
-      if (vv.height >= window.innerHeight - 60) unpinBar();
-      else setTimeout(pinBar, 30);
-    };
+    const onVV = () => setTimeout(bringInputUp, 30);
     window.visualViewport.addEventListener("resize", onVV);
     window.visualViewport.addEventListener("scroll", onVV);
   }
