@@ -159,44 +159,71 @@
     }
   }
 
-  function scaleTextIn(feed) {
+  // 名前・日時などのヘッダー系テキスト(リンクや見出しの中)の拡大上限。
+  // 本文と同じ倍率まで上げるとアバター横の行が折り返してしまう。
+  const HEADER_TEXT_SCALE_MAX = 1.8;
+
+  function scaleCard(card, factor) {
+    scaleUiIn(card, factor);
+    const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
+    for (let el = walker.nextNode(); el; el = walker.nextNode()) {
+      const hasDirectText = [...el.childNodes].some(
+        (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
+      );
+      if (!hasDirectText) continue;
+      if (!el.dataset.fftBase) {
+        // 元のサイズを一度だけ記録し、以後はそこから倍率で計算する
+        let fs = parseFloat(getComputedStyle(el).fontSize);
+        if (!Number.isFinite(fs) || fs <= 0) continue;
+        if (fs >= BIG_FONT_PX) fs = BIG_FONT_BASE;
+        el.dataset.fftBase = String(fs);
+        const lh = getComputedStyle(el).lineHeight;
+        if (lh && lh.endsWith("px")) {
+          el.dataset.fftBaseLh = String(parseFloat(lh));
+        }
+      }
+      const f = el.closest("a, h1, h2, h3, h4, h5, strong")
+        ? Math.min(factor, HEADER_TEXT_SCALE_MAX)
+        : factor;
+      const target = parseFloat(el.dataset.fftBase) * f;
+      if (Math.abs(parseFloat(el.style.fontSize || "0") - target) > 0.05) {
+        el.style.setProperty("font-size", target.toFixed(1) + "px", "important");
+        if (el.dataset.fftBaseLh) {
+          const lh = parseFloat(el.dataset.fftBaseLh) * f;
+          el.style.setProperty(
+            "line-height",
+            lh.toFixed(1) + "px",
+            "important"
+          );
+        }
+      }
+    }
+  }
+
+  // 拡大対象の「投稿カード」を集める。
+  // ・role=feed の直下要素(友達フィード等の一覧)
+  // ・feed の外にある role=article(プロフィールのタイムライン、
+  //   投稿の詳細表示など)。article 入れ子(コメント)は親側で処理する
+  function collectCards() {
+    const feeds = [...document.querySelectorAll('[role="feed"]')];
+    const cards = [];
+    for (const feed of feeds) cards.push(...feed.children);
+    for (const a of document.querySelectorAll('[role="article"]')) {
+      if (feeds.some((f) => f.contains(a))) continue;
+      if (a.parentElement && a.parentElement.closest('[role="article"]')) continue;
+      cards.push(a);
+    }
+    return cards;
+  }
+
+  function scaleAllPosts() {
     const factor = parseFloat(zoomFactor());
     const vh = window.innerHeight;
-    for (const card of feed.children) {
+    for (const card of collectCards()) {
       // 画面の前後 1 画面分だけ処理(遠くのカードは表示時に処理される)
       const r = card.getBoundingClientRect();
       if (r.bottom < -vh || r.top > 2 * vh) continue;
-      scaleUiIn(card, factor);
-      const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
-      for (let el = walker.nextNode(); el; el = walker.nextNode()) {
-        const hasDirectText = [...el.childNodes].some(
-          (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
-        );
-        if (!hasDirectText) continue;
-        if (!el.dataset.fftBase) {
-          // 元のサイズを一度だけ記録し、以後はそこから倍率で計算する
-          let fs = parseFloat(getComputedStyle(el).fontSize);
-          if (!Number.isFinite(fs) || fs <= 0) continue;
-          if (fs >= BIG_FONT_PX) fs = BIG_FONT_BASE;
-          el.dataset.fftBase = String(fs);
-          const lh = getComputedStyle(el).lineHeight;
-          if (lh && lh.endsWith("px")) {
-            el.dataset.fftBaseLh = String(parseFloat(lh));
-          }
-        }
-        const target = parseFloat(el.dataset.fftBase) * factor;
-        if (Math.abs(parseFloat(el.style.fontSize || "0") - target) > 0.05) {
-          el.style.setProperty("font-size", target.toFixed(1) + "px", "important");
-          if (el.dataset.fftBaseLh) {
-            const lh = parseFloat(el.dataset.fftBaseLh) * factor;
-            el.style.setProperty(
-              "line-height",
-              lh.toFixed(1) + "px",
-              "important"
-            );
-          }
-        }
-      }
+      scaleCard(card, factor);
     }
   }
 
@@ -264,14 +291,6 @@
 
   let hiddenSidebar = null;
 
-  // 文字/アイコンの拡大は、投稿一覧(role=feed)を持つページ全般に適用する
-  // (友達フィードだけでなくプロフィールのタイムライン等でも効かせる)
-  function scaleAllFeeds() {
-    for (const feed of document.querySelectorAll('[role="feed"]')) {
-      scaleTextIn(feed);
-    }
-  }
-
   // フィードの描き直しを描画前に検知して即座に再適用する
   // (ポーリングだけだと、描き直された特大フォントが一瞬見えてしまう)
   let feedObserver = null;
@@ -285,13 +304,19 @@
           const main = document.querySelector('[role="main"]');
           if (main) widenFeed(main);
         }
-        scaleAllFeeds();
+        scaleAllPosts();
       });
     }
-    for (const feed of document.querySelectorAll('[role="feed"]')) {
-      if (observedFeeds.has(feed)) continue;
-      feedObserver.observe(feed, { childList: true, subtree: true });
-      observedFeeds.add(feed);
+    // feed 一覧に加えて main も見張る(プロフィール等、feed を持たない
+    // ページの投稿描き直しに追従するため)
+    const targets = [
+      ...document.querySelectorAll('[role="feed"]'),
+      ...document.querySelectorAll('[role="main"]'),
+    ];
+    for (const t of targets) {
+      if (observedFeeds.has(t)) continue;
+      feedObserver.observe(t, { childList: true, subtree: true });
+      observedFeeds.add(t);
     }
   }
 
@@ -333,7 +358,7 @@
     }
 
     if (isScaleActive()) {
-      scaleAllFeeds();
+      scaleAllPosts();
       ensureFeedObservers();
     } else {
       dropFeedObservers();
