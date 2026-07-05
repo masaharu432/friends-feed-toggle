@@ -23,12 +23,6 @@
   "zoomAuto": {
     "message": "自動(画面幅に合わせる)"
   },
-  "dumpButton": {
-    "message": "診断表示のON/OFF"
-  },
-  "dumpDone": {
-    "message": "画面上部に診断値を表示/非表示しました"
-  },
   "diagNoTab": {
     "message": "Facebookのタブで開くと動作状態を表示します"
   },

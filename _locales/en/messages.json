@@ -23,12 +23,6 @@
   "zoomAuto": {
     "message": "Auto (fit to screen)"
   },
-  "dumpButton": {
-    "message": "Toggle diagnostic overlay"
-  },
-  "dumpDone": {
-    "message": "Toggled the diagnostic overlay at the top of the page"
-  },
   "diagNoTab": {
     "message": "Open this on a Facebook tab to see status"
   },
