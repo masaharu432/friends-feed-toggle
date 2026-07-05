@@ -557,6 +557,37 @@
     return Math.min(vvBottom - KB_MARGIN, window.innerHeight * 0.5);
   }
 
+  // 入力欄から上へたどり position:fixed の祖先を返す(なければ null)
+  function findFixedAncestor(el) {
+    let n = el;
+    while (n && n !== document.body) {
+      if (getComputedStyle(n).position === "fixed") return n;
+      n = n.parentElement;
+    }
+    return null;
+  }
+
+  // 要素に現在かかっている translateY を実測で取り出す
+  // (Facebook の再描画で inline style が消えても実際の値を反映)
+  function currentTranslateY(el) {
+    const t = getComputedStyle(el).transform;
+    if (!t || t === "none") return 0;
+    try {
+      return new DOMMatrixReadOnly(t).m42;
+    } catch {
+      return 0;
+    }
+  }
+
+  let liftedFixed = null;
+
+  function clearFixedLift() {
+    if (liftedFixed) {
+      liftedFixed.style.removeProperty("transform");
+      liftedFixed = null;
+    }
+  }
+
   function bringInputUp() {
     if (!enabled) return;
     const el = focusedInput();
@@ -565,6 +596,7 @@
     let r = el.getBoundingClientRect();
     let delta = r.bottom - target;
     if (delta <= 1) return; // すでに十分上にある → 何もしない(操作を邪魔しない)
+
     // スクロール可能な祖先を内側から順に動かして入力欄を持ち上げる
     for (const sc of scrollableAncestors(el)) {
       sc.scrollTop = Math.min(sc.scrollTop + delta, sc.scrollHeight);
@@ -572,7 +604,18 @@
       delta = r.bottom - target;
       if (delta <= 1) return;
     }
-    // ページ全体もスクロール
+
+    // スクロールで解決しない = 入力欄が固定配置(position:fixed)。
+    // その固定祖先を transform で上へ持ち上げてキーボードの上に出す。
+    const fixed = findFixedAncestor(el);
+    if (fixed) {
+      const next = currentTranslateY(fixed) - delta;
+      fixed.style.setProperty("transform", `translateY(${next}px)`, "important");
+      liftedFixed = fixed;
+      return;
+    }
+
+    // 固定でもなくスクロールもできない場合はページ全体を動かす
     if (delta > 1) window.scrollBy(0, delta);
   }
 
@@ -592,8 +635,18 @@
     // キーボードが出きるタイミングは端末差があるので複数回試す
     for (const t of [250, 500, 800]) setTimeout(bringInputUp, t);
   });
+  window.addEventListener("focusout", () => {
+    // 入力欄から離れたら持ち上げを解除して元に戻す
+    setTimeout(() => {
+      if (!focusedInput()) clearFixedLift();
+    }, 200);
+  });
   if (window.visualViewport) {
-    const onVV = () => setTimeout(bringInputUp, 30);
+    const onVV = () => {
+      // キーボードが閉じたら持ち上げを解除
+      if (!keyboardOpen()) clearFixedLift();
+      setTimeout(bringInputUp, 30);
+    };
     window.visualViewport.addEventListener("resize", onVV);
     window.visualViewport.addEventListener("scroll", onVV);
   }
