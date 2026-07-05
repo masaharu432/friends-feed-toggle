@@ -31,16 +31,16 @@ body {
 }
 
 main {
-  padding: 20px 16px;
+  padding: 10px 14px 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 7px;
   text-align: center;
 }
 
 h1 {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
 }
 
@@ -60,17 +60,17 @@ h1 {
 
 .track {
   display: block;
-  width: 64px;
-  height: 34px;
-  border-radius: 17px;
+  width: 46px;
+  height: 26px;
+  border-radius: 13px;
   background: var(--track-off);
   transition: background 0.15s ease;
 }
 
 .thumb {
   display: block;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background: #fff;
   margin: 3px;
@@ -83,7 +83,7 @@ h1 {
 }
 
 .switch input:checked + .track .thumb {
-  transform: translateX(30px);
+  transform: translateX(20px);
 }
 
 .switch input:focus-visible + .track {
@@ -92,7 +92,7 @@ h1 {
 }
 
 .state {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   min-height: 1.2em;
 }
@@ -103,25 +103,25 @@ h1 {
   justify-content: space-between;
   gap: 8px;
   width: 100%;
-  font-size: 12px;
+  font-size: 11px;
   cursor: pointer;
-  padding-top: 4px;
+  padding-top: 3px;
   border-top: 1px solid var(--track-off);
 }
 
 .switch.small .track {
-  width: 40px;
-  height: 22px;
-  border-radius: 11px;
+  width: 34px;
+  height: 19px;
+  border-radius: 10px;
 }
 
 .switch.small .thumb {
-  width: 16px;
-  height: 16px;
+  width: 13px;
+  height: 13px;
 }
 
 .switch.small input:checked + .track .thumb {
-  transform: translateX(18px);
+  transform: translateX(15px);
 }
 
 .factor-value {
@@ -133,8 +133,7 @@ h1 {
 input[type="range"] {
   width: 100%;
   accent-color: var(--accent);
-  /* スマホでも掴みやすいように太めに */
-  height: 28px;
+  height: 20px;
 }
 
 body.on .state {
@@ -142,20 +141,20 @@ body.on .state {
 }
 
 .note {
-  font-size: 11px;
+  font-size: 9px;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.4;
 }
 
 .diag {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--muted);
-  line-height: 1.5;
+  line-height: 1.4;
   word-break: break-all;
 }
 
 .version {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--muted);
 }
 

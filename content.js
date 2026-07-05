@@ -95,9 +95,23 @@
   // これより大きい画像(=投稿写真など)は拡大しない。
   // 小さいもの(アバター・アイコン・絵文字画像)だけを対象にする。
   const UI_ICON_MAX_PX = 60;
+  // アイコン類の拡大上限。文字ほど大きくする必要はなく、
+  // 高倍率では枠からはみ出すため控えめにする。
+  const UI_SCALE_MAX = 1.5;
 
-  // カード内の小さな画像/アイコン類を拡大率に合わせて大きくする
+  // px 値を含む CSS 値(background-size/position 等)を倍率で掛け直す
+  function scalePxValues(value, f) {
+    return value.replace(
+      /(-?\d+(?:\.\d+)?)px/g,
+      (_, n) => (parseFloat(n) * f).toFixed(2) + "px"
+    );
+  }
+
+  // カード内の小さな画像/アイコン類を拡大率に合わせて大きくする。
+  // 見た目だけの transform だと枠のサイズ計算に反映されず
+  // はみ出すため、実寸(width/height)を変えてレイアウトに反映させる。
   function scaleUiIn(card, factor) {
+    const f = Math.min(factor, UI_SCALE_MAX);
     for (const el of card.querySelectorAll("img, svg, i")) {
       if (!el.dataset.fftUi) {
         const r = el.getBoundingClientRect();
@@ -110,27 +124,31 @@
           continue;
         }
         el.dataset.fftUi = r.width.toFixed(1) + "x" + r.height.toFixed(1);
+        // スプライト画像は絵柄の位置も一緒に拡大する必要があるため
+        // 元の background-size / background-position を記録しておく
+        const cs = getComputedStyle(el);
+        if (cs.backgroundImage && cs.backgroundImage !== "none") {
+          el.dataset.fftUiBg =
+            (cs.backgroundSize || "") + "|" + (cs.backgroundPosition || "");
+        }
       }
       if (el.dataset.fftUi === "skip") continue;
       const [w, h] = el.dataset.fftUi.split("x").map(Number);
-      if (el.tagName.toLowerCase() === "i") {
-        // スプライト画像(background-image)は width/height を変えると
-        // 絵柄がずれるので transform で拡大する
-        const t = factor > 1.001 ? `scale(${factor})` : "";
-        if (el.style.transform !== t) {
-          if (t) {
-            el.style.setProperty("transform", t, "important");
-            el.style.setProperty("transform-origin", "center", "important");
-          } else {
-            el.style.removeProperty("transform");
-            el.style.removeProperty("transform-origin");
-          }
+      const tw = (w * f).toFixed(1) + "px";
+      if (el.style.width === tw) continue;
+      el.style.setProperty("width", tw, "important");
+      el.style.setProperty("height", (h * f).toFixed(1) + "px", "important");
+      if (el.dataset.fftUiBg) {
+        const [bs, bp] = el.dataset.fftUiBg.split("|");
+        if (bs.includes("px")) {
+          el.style.setProperty("background-size", scalePxValues(bs, f), "important");
         }
-      } else {
-        const tw = (w * factor).toFixed(1) + "px";
-        if (el.style.width !== tw) {
-          el.style.setProperty("width", tw, "important");
-          el.style.setProperty("height", (h * factor).toFixed(1) + "px", "important");
+        if (bp.includes("px")) {
+          el.style.setProperty(
+            "background-position",
+            scalePxValues(bp, f),
+            "important"
+          );
         }
       }
     }
@@ -198,10 +216,18 @@
       delete el.dataset.fftBaseLh;
     }
     for (const el of document.querySelectorAll("[data-fft-ui]")) {
-      for (const p of ["width", "height", "transform", "transform-origin"]) {
+      for (const p of [
+        "width",
+        "height",
+        "transform",
+        "transform-origin",
+        "background-size",
+        "background-position",
+      ]) {
         el.style.removeProperty(p);
       }
       delete el.dataset.fftUi;
+      delete el.dataset.fftUiBg;
     }
   }
 
