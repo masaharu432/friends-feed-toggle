@@ -92,6 +92,49 @@
   // 画面付近のカードだけを毎回走査し直す。
   const BIG_FONT_PX = 22;
   const BIG_FONT_BASE = 15;
+  // これより大きい画像(=投稿写真など)は拡大しない。
+  // 小さいもの(アバター・アイコン・絵文字画像)だけを対象にする。
+  const UI_ICON_MAX_PX = 60;
+
+  // カード内の小さな画像/アイコン類を拡大率に合わせて大きくする
+  function scaleUiIn(card, factor) {
+    for (const el of card.querySelectorAll("img, svg, i")) {
+      if (!el.dataset.fftUi) {
+        const r = el.getBoundingClientRect();
+        if (
+          !r.width ||
+          r.width > UI_ICON_MAX_PX ||
+          r.height > UI_ICON_MAX_PX
+        ) {
+          el.dataset.fftUi = "skip";
+          continue;
+        }
+        el.dataset.fftUi = r.width.toFixed(1) + "x" + r.height.toFixed(1);
+      }
+      if (el.dataset.fftUi === "skip") continue;
+      const [w, h] = el.dataset.fftUi.split("x").map(Number);
+      if (el.tagName.toLowerCase() === "i") {
+        // スプライト画像(background-image)は width/height を変えると
+        // 絵柄がずれるので transform で拡大する
+        const t = factor > 1.001 ? `scale(${factor})` : "";
+        if (el.style.transform !== t) {
+          if (t) {
+            el.style.setProperty("transform", t, "important");
+            el.style.setProperty("transform-origin", "center", "important");
+          } else {
+            el.style.removeProperty("transform");
+            el.style.removeProperty("transform-origin");
+          }
+        }
+      } else {
+        const tw = (w * factor).toFixed(1) + "px";
+        if (el.style.width !== tw) {
+          el.style.setProperty("width", tw, "important");
+          el.style.setProperty("height", (h * factor).toFixed(1) + "px", "important");
+        }
+      }
+    }
+  }
 
   function scaleTextIn(feed) {
     const factor = parseFloat(zoomFactor());
@@ -100,6 +143,7 @@
       // 画面の前後 1 画面分だけ処理(遠くのカードは表示時に処理される)
       const r = card.getBoundingClientRect();
       if (r.bottom < -vh || r.top > 2 * vh) continue;
+      scaleUiIn(card, factor);
       const walker = document.createTreeWalker(card, NodeFilter.SHOW_ELEMENT);
       for (let el = walker.nextNode(); el; el = walker.nextNode()) {
         const hasDirectText = [...el.childNodes].some(
@@ -152,6 +196,12 @@
       el.style.removeProperty("line-height");
       delete el.dataset.fftBase;
       delete el.dataset.fftBaseLh;
+    }
+    for (const el of document.querySelectorAll("[data-fft-ui]")) {
+      for (const p of ["width", "height", "transform", "transform-origin"]) {
+        el.style.removeProperty(p);
+      }
+      delete el.dataset.fftUi;
     }
   }
 
