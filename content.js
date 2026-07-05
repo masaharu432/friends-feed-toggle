@@ -476,6 +476,53 @@
     a.remove();
   }
 
+  // ---- コメント入力欄をソフトウェアキーボードに隠させない ----
+  // PC 表示のページはスマホのキーボードを想定しておらず、キーボードが
+  // 開いても入力欄が見える位置へスクロールされないことがある。
+  // フォーカス時とキーボード開閉(visualViewport の縮小)時に、
+  // 入力欄がキーボードの上に見えるようスクロールして補正する。
+  const INPUT_SELECTOR =
+    'textarea, input, [contenteditable="true"], [role="textbox"]';
+
+  function keepInputVisible() {
+    if (!enabled) return;
+    const el = document.activeElement;
+    if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) return;
+    const vv = window.visualViewport;
+    const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    const r = el.getBoundingClientRect();
+    const delta = r.bottom - (visibleBottom - 16);
+    if (delta <= 0) return;
+    // 入力欄を内包する一番近いスクロール可能な祖先を探してスクロールする
+    let sc = el.parentElement;
+    while (sc && sc !== document.body) {
+      const cs = getComputedStyle(sc);
+      if (
+        /(auto|scroll)/.test(cs.overflowY) &&
+        sc.scrollHeight > sc.clientHeight + 1
+      ) {
+        break;
+      }
+      sc = sc.parentElement;
+    }
+    if (sc && sc !== document.body) {
+      sc.scrollTop += delta;
+    } else {
+      window.scrollBy(0, delta);
+    }
+  }
+
+  window.addEventListener("focusin", () => {
+    // キーボードが出きるのを待ってから位置を補正する
+    setTimeout(keepInputVisible, 300);
+    setTimeout(keepInputVisible, 700);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", () => {
+      setTimeout(keepInputVisible, 50);
+    });
+  }
+
   // ポップアップからのメッセージ(診断表示・診断ダンプ)
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg) return;
