@@ -470,6 +470,7 @@
   //   問題の診断用。入力欄にフォーカスした状態でスクショする)
   let hud = null;
   let hudTimer = null;
+  let hudOutlined = null;
 
   function toggleDump() {
     if (hud) {
@@ -477,6 +478,10 @@
       hud = null;
       if (hudTimer) clearInterval(hudTimer);
       hudTimer = null;
+      if (hudOutlined) {
+        hudOutlined.style.removeProperty("outline");
+        hudOutlined = null;
+      }
       return;
     }
     hud = document.createElement("div");
@@ -491,6 +496,15 @@
       const el = focusedInput();
       const r = el ? el.getBoundingClientRect() : null;
       const anc = el ? scrollableAncestors(el).length : 0;
+      // フォーカス中の入力欄を赤枠で可視化(実際の位置を目で確認するため)
+      if (hudOutlined && hudOutlined !== el) {
+        hudOutlined.style.removeProperty("outline");
+        hudOutlined = null;
+      }
+      if (el) {
+        el.style.setProperty("outline", "3px solid red", "important");
+        hudOutlined = el;
+      }
       hud.textContent =
         `v${chrome.runtime.getManifest().version}  ` +
         `iw/ih=${window.innerWidth}/${window.innerHeight}\n` +
