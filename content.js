@@ -464,16 +464,49 @@
     return dump;
   }
 
-  function downloadDump() {
-    const blob = new Blob([JSON.stringify(buildDump(), null, 1)], {
-      type: "application/json",
-    });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "fft-diagnostic.json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+  // ダウンロードが使えないブラウザ向けに、診断情報を画面上に表示して
+  // スクショで共有できるようにする。押すたびに表示/非表示を切り替える。
+  // ・上部の HUD: 実測のビューポート/入力欄の値をライブ表示(キーボード
+  //   問題の診断用。入力欄にフォーカスした状態でスクショする)
+  let hud = null;
+  let hudTimer = null;
+
+  function toggleDump() {
+    if (hud) {
+      hud.remove();
+      hud = null;
+      if (hudTimer) clearInterval(hudTimer);
+      hudTimer = null;
+      return;
+    }
+    hud = document.createElement("div");
+    hud.style.cssText =
+      "position:fixed;top:0;left:0;right:0;z-index:2147483647;" +
+      "background:rgba(0,0,0,.85);color:#0f0;font:11px/1.5 monospace;" +
+      "padding:6px 8px;white-space:pre-wrap;pointer-events:none;";
+    document.documentElement.appendChild(hud);
+    const update = () => {
+      if (!hud) return;
+      const vv = window.visualViewport;
+      const el = focusedInput();
+      const r = el ? el.getBoundingClientRect() : null;
+      const anc = el ? scrollableAncestors(el).length : 0;
+      hud.textContent =
+        `v${chrome.runtime.getManifest().version}  ` +
+        `iw/ih=${window.innerWidth}/${window.innerHeight}\n` +
+        (vv
+          ? `vv w/h=${Math.round(vv.width)}/${Math.round(vv.height)} ` +
+            `offY=${Math.round(vv.offsetTop)} scale=${vv.scale.toFixed(2)}\n`
+          : "vv=none\n") +
+        `kbOpen=${keyboardOpen()} target=${Math.round(targetBottomY())}\n` +
+        (el
+          ? `input=${el.tagName.toLowerCase()} bottom=${Math.round(
+              r.bottom
+            )} scrollAnc=${anc}`
+          : "input=none (入力欄をタップして)");
+    };
+    update();
+    hudTimer = setInterval(update, 200);
   }
 
   // ---- コメント入力欄をソフトウェアキーボードに隠させない ----
@@ -514,20 +547,29 @@
     return list;
   }
 
+  // 入力欄を収めたい下端の Y 座標(画面上端からの px)。
+  // ・visualViewport が縮む端末: キーボード上端のすぐ上
+  // ・縮まない端末(PC 表示で多い): 画面のほぼ半分の位置
+  // 両者の小さい方(=より上)を採用するので、キーボード検出に依存しない。
+  function targetBottomY() {
+    const vv = window.visualViewport;
+    const vvBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+    return Math.min(vvBottom - KB_MARGIN, window.innerHeight * 0.5);
+  }
+
   function bringInputUp() {
     if (!enabled) return;
     const el = focusedInput();
-    if (!el || !keyboardOpen()) return;
-    const vv = window.visualViewport;
-    const visibleBottom = vv.offsetTop + vv.height;
+    if (!el) return;
+    const target = targetBottomY();
     let r = el.getBoundingClientRect();
-    let delta = r.bottom - (visibleBottom - KB_MARGIN);
-    if (delta <= 1) return; // すでに見えている → 何もしない(操作を邪魔しない)
+    let delta = r.bottom - target;
+    if (delta <= 1) return; // すでに十分上にある → 何もしない(操作を邪魔しない)
     // スクロール可能な祖先を内側から順に動かして入力欄を持ち上げる
     for (const sc of scrollableAncestors(el)) {
       sc.scrollTop = Math.min(sc.scrollTop + delta, sc.scrollHeight);
       r = el.getBoundingClientRect();
-      delta = r.bottom - (visibleBottom - KB_MARGIN);
+      delta = r.bottom - target;
       if (delta <= 1) return;
     }
     // ページ全体もスクロール
@@ -560,7 +602,7 @@
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (!msg) return;
     if (msg.type === "fft-dump") {
-      downloadDump();
+      toggleDump();
       sendResponse({ ok: true });
       return;
     }

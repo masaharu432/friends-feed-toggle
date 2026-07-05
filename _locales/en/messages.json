@@ -24,10 +24,10 @@
     "message": "Auto (fit to screen)"
   },
   "dumpButton": {
-    "message": "Download diagnostic file"
+    "message": "Toggle diagnostic overlay"
   },
   "dumpDone": {
-    "message": "Diagnostic saved (contains no post text or names)"
+    "message": "Toggled the diagnostic overlay at the top of the page"
   },
   "diagNoTab": {
     "message": "Open this on a Facebook tab to see status"

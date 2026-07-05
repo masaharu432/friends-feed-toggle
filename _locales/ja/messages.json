@@ -24,10 +24,10 @@
     "message": "自動(画面幅に合わせる)"
   },
   "dumpButton": {
-    "message": "診断ファイルをダウンロード"
+    "message": "診断表示のON/OFF"
   },
   "dumpDone": {
-    "message": "診断ファイルを保存しました(投稿の本文・名前は含まれません)"
+    "message": "画面上部に診断値を表示/非表示しました"
   },
   "diagNoTab": {
     "message": "Facebookのタブで開くと動作状態を表示します"
