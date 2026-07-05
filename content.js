@@ -37,9 +37,11 @@
   }
 
   // ---- 友達フィード表示中のレイアウト調整 ----
-  // ブラウザ標準のページズームはレイアウト幅ごと拡大して横スクロールに
-  // なってしまう(PC 版 Facebook は幅固定のため)ので、フィード列だけを
-  // CSS zoom で拡大し、幅は画面に合わせ直す方式をとる。
+  // 拡大は「文字サイズの拡大」で実現する。
+  // ・ブラウザ標準のページズームはレイアウト幅ごと拡大して横スクロールになる
+  // ・CSS zoom はフィード内の座標系が Facebook のポップアップ位置計算と
+  //   ズレて、いいね/リアクションの吹き出しが壊れる
+  // 文字サイズの変更ならレイアウトが自然に折り返し、操作系も壊れない。
 
   function zoomFactor() {
     const n = parseFloat(zoomSetting);
@@ -82,30 +84,17 @@
     }
   }
 
-  // Facebook は短文だけの投稿を特大フォント(約 24px〜)で表示する。
-  // 拡大表示と重なると極端に大きくなるので、投稿本文の特大フォントを
-  // 通常サイズに揃える。
+  // 投稿内のテキストを拡大率に応じて大きくする。
+  // Facebook は短文だけの投稿を特大フォント(約 24px〜)で表示するため、
+  // それらは通常サイズ扱いに揃えてから拡大する(サイズのばらつき防止)。
+  // Facebook はスクロールや戻る操作でカードの中身を描き直す
+  // (こちらの適用が消える)ため、「処理済み」の印は付けず、
+  // 画面付近のカードだけを毎回走査し直す。
   const BIG_FONT_PX = 22;
-  const NORMAL_FONT = "15px";
+  const BIG_FONT_BASE = 15;
 
-  // ブラウザによっては zoom が computed font-size に掛かって返るため、
-  // 実測でスケールを求めてしきい値を補正する(zoom 値ごとにキャッシュ)
-  let fontScaleCache = { zoom: "", scale: 1 };
-  function fontScale(feed) {
-    const z = zoomFactor();
-    if (fontScaleCache.zoom === z) return fontScaleCache.scale;
-    const probe = document.createElement("span");
-    probe.style.cssText = "font-size:10px;position:absolute;visibility:hidden";
-    probe.textContent = "x";
-    feed.appendChild(probe);
-    const scale = (parseFloat(getComputedStyle(probe).fontSize) || 10) / 10;
-    probe.remove();
-    fontScaleCache = { zoom: z, scale };
-    return scale;
-  }
-
-  function normalizeBigText(feed) {
-    const threshold = BIG_FONT_PX * fontScale(feed);
+  function scaleTextIn(feed) {
+    const factor = parseFloat(zoomFactor());
     const vh = window.innerHeight;
     for (const card of feed.children) {
       // 画面の前後 1 画面分だけ処理(遠くのカードは表示時に処理される)
@@ -117,9 +106,28 @@
           (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim()
         );
         if (!hasDirectText) continue;
-        if (parseFloat(getComputedStyle(el).fontSize) >= threshold) {
-          el.dataset.fftFont = "1";
-          el.style.setProperty("font-size", NORMAL_FONT, "important");
+        if (!el.dataset.fftBase) {
+          // 元のサイズを一度だけ記録し、以後はそこから倍率で計算する
+          let fs = parseFloat(getComputedStyle(el).fontSize);
+          if (!Number.isFinite(fs) || fs <= 0) continue;
+          if (fs >= BIG_FONT_PX) fs = BIG_FONT_BASE;
+          el.dataset.fftBase = String(fs);
+          const lh = getComputedStyle(el).lineHeight;
+          if (lh && lh.endsWith("px")) {
+            el.dataset.fftBaseLh = String(parseFloat(lh));
+          }
+        }
+        const target = parseFloat(el.dataset.fftBase) * factor;
+        if (Math.abs(parseFloat(el.style.fontSize || "0") - target) > 0.05) {
+          el.style.setProperty("font-size", target.toFixed(1) + "px", "important");
+          if (el.dataset.fftBaseLh) {
+            const lh = parseFloat(el.dataset.fftBaseLh) * factor;
+            el.style.setProperty(
+              "line-height",
+              lh.toFixed(1) + "px",
+              "important"
+            );
+          }
         }
       }
     }
@@ -139,9 +147,11 @@
       }
       delete el.dataset.fftWide;
     }
-    for (const el of document.querySelectorAll("[data-fft-font]")) {
+    for (const el of document.querySelectorAll("[data-fft-base]")) {
       el.style.removeProperty("font-size");
-      delete el.dataset.fftFont;
+      el.style.removeProperty("line-height");
+      delete el.dataset.fftBase;
+      delete el.dataset.fftBaseLh;
     }
   }
 
@@ -169,7 +179,6 @@
   }
 
   let hiddenSidebar = null;
-  let zoomedMain = null;
 
   // フィードの描き直しを描画前に検知して即座に再適用する
   // (ポーリングだけだと、描き直された特大フォントが一瞬見えてしまう)
@@ -186,7 +195,7 @@
       if (!main) return;
       widenFeed(main);
       const f = main.querySelector('[role="feed"]');
-      if (f) normalizeBigText(f);
+      if (f) scaleTextIn(f);
     });
     feedObserver.observe(feed, { childList: true, subtree: true });
     observedFeed = feed;
@@ -215,14 +224,9 @@
       }
       const main = document.querySelector('[role="main"]');
       if (main) {
-        const desired = zoomFactor();
-        if (Math.abs(parseFloat(main.style.zoom || "1") - parseFloat(desired)) > 0.001) {
-          main.style.zoom = desired;
-        }
-        zoomedMain = main;
         widenFeed(main);
         const feed = main.querySelector('[role="feed"]');
-        if (feed) normalizeBigText(feed);
+        if (feed) scaleTextIn(feed);
         ensureFeedObserver(main);
       }
     } else {
@@ -230,10 +234,6 @@
       if (hiddenSidebar) {
         hiddenSidebar.style.removeProperty("display");
         hiddenSidebar = null;
-      }
-      if (zoomedMain) {
-        zoomedMain.style.removeProperty("zoom");
-        zoomedMain = null;
       }
       restoreFeed();
     }
