@@ -97,7 +97,9 @@
   const UI_ICON_MAX_PX = 60;
   // アイコン類の拡大上限。文字ほど大きくする必要はなく、
   // 高倍率では枠からはみ出すため控えめにする。
-  const UI_SCALE_MAX = 1.5;
+  // アバター等の画像は 2 倍まで、スプライトアイコンは 1.5 倍まで。
+  const UI_IMG_SCALE_MAX = 2;
+  const UI_SPRITE_SCALE_MAX = 1.5;
 
   // px 値を含む CSS 値(background-size/position 等)を倍率で掛け直す
   function scalePxValues(value, f) {
@@ -111,7 +113,6 @@
   // 見た目だけの transform だと枠のサイズ計算に反映されず
   // はみ出すため、実寸(width/height)を変えてレイアウトに反映させる。
   function scaleUiIn(card, factor) {
-    const f = Math.min(factor, UI_SCALE_MAX);
     for (const el of card.querySelectorAll("img, svg, i")) {
       if (!el.dataset.fftUi) {
         const r = el.getBoundingClientRect();
@@ -133,6 +134,10 @@
         }
       }
       if (el.dataset.fftUi === "skip") continue;
+      const f = Math.min(
+        factor,
+        el.dataset.fftUiBg ? UI_SPRITE_SCALE_MAX : UI_IMG_SCALE_MAX
+      );
       const [w, h] = el.dataset.fftUi.split("x").map(Number);
       const tw = (w * f).toFixed(1) + "px";
       if (el.style.width === tw) continue;
@@ -195,7 +200,7 @@
     }
   }
 
-  function restoreFeed() {
+  function unwidenFeed() {
     for (const el of document.querySelectorAll("[data-fft-wide]")) {
       for (const p of [
         "width",
@@ -209,6 +214,9 @@
       }
       delete el.dataset.fftWide;
     }
+  }
+
+  function restoreScaling() {
     for (const el of document.querySelectorAll("[data-fft-base]")) {
       el.style.removeProperty("font-size");
       el.style.removeProperty("line-height");
@@ -256,42 +264,58 @@
 
   let hiddenSidebar = null;
 
+  // 文字/アイコンの拡大は、投稿一覧(role=feed)を持つページ全般に適用する
+  // (友達フィードだけでなくプロフィールのタイムライン等でも効かせる)
+  function scaleAllFeeds() {
+    for (const feed of document.querySelectorAll('[role="feed"]')) {
+      scaleTextIn(feed);
+    }
+  }
+
   // フィードの描き直しを描画前に検知して即座に再適用する
   // (ポーリングだけだと、描き直された特大フォントが一瞬見えてしまう)
   let feedObserver = null;
-  let observedFeed = null;
+  let observedFeeds = new WeakSet();
 
-  function ensureFeedObserver(mainEl) {
-    const feed = mainEl.querySelector('[role="feed"]');
-    if (!feed || feed === observedFeed) return;
-    if (feedObserver) feedObserver.disconnect();
-    feedObserver = new MutationObserver(() => {
-      if (!isActive()) return;
-      const main = document.querySelector('[role="main"]');
-      if (!main) return;
-      widenFeed(main);
-      const f = main.querySelector('[role="feed"]');
-      if (f) scaleTextIn(f);
-    });
-    feedObserver.observe(feed, { childList: true, subtree: true });
-    observedFeed = feed;
+  function ensureFeedObservers() {
+    if (!feedObserver) {
+      feedObserver = new MutationObserver(() => {
+        if (!isScaleActive()) return;
+        if (isFriendsActive()) {
+          const main = document.querySelector('[role="main"]');
+          if (main) widenFeed(main);
+        }
+        scaleAllFeeds();
+      });
+    }
+    for (const feed of document.querySelectorAll('[role="feed"]')) {
+      if (observedFeeds.has(feed)) continue;
+      feedObserver.observe(feed, { childList: true, subtree: true });
+      observedFeeds.add(feed);
+    }
   }
 
-  function dropFeedObserver() {
+  function dropFeedObservers() {
     if (feedObserver) feedObserver.disconnect();
     feedObserver = null;
-    observedFeed = null;
+    observedFeeds = new WeakSet();
   }
 
-  function isActive() {
-    return enabled && zoomEnabled && isFriendsFeedUrl(location.href);
+  // 文字/アイコン拡大を効かせるか(facebook 上の全ページ対象)
+  function isScaleActive() {
+    return enabled && zoomEnabled;
+  }
+
+  // サイドバー非表示・カード幅の拡張を効かせるか(友達フィードのみ)
+  function isFriendsActive() {
+    return isScaleActive() && isFriendsFeedUrl(location.href);
   }
 
   function applyView() {
-    const active = isActive();
-    document.documentElement.classList.toggle("fft-zoom", active);
+    const friendsActive = isFriendsActive();
+    document.documentElement.classList.toggle("fft-zoom", friendsActive);
 
-    if (active) {
+    if (friendsActive) {
       if (hiddenSidebar && !hiddenSidebar.isConnected) hiddenSidebar = null;
       const sidebar = hiddenSidebar || findSidebar();
       if (sidebar && sidebar !== hiddenSidebar) {
@@ -299,19 +323,21 @@
         hiddenSidebar = sidebar;
       }
       const main = document.querySelector('[role="main"]');
-      if (main) {
-        widenFeed(main);
-        const feed = main.querySelector('[role="feed"]');
-        if (feed) scaleTextIn(feed);
-        ensureFeedObserver(main);
-      }
+      if (main) widenFeed(main);
     } else {
-      dropFeedObserver();
       if (hiddenSidebar) {
         hiddenSidebar.style.removeProperty("display");
         hiddenSidebar = null;
       }
-      restoreFeed();
+      unwidenFeed();
+    }
+
+    if (isScaleActive()) {
+      scaleAllFeeds();
+      ensureFeedObservers();
+    } else {
+      dropFeedObservers();
+      restoreScaling();
     }
   }
 
