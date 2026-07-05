@@ -502,7 +502,10 @@
         (el
           ? `input=${el.tagName.toLowerCase()} bottom=${Math.round(
               r.bottom
-            )} scrollAnc=${anc}`
+            )} scrollAnc=${anc}\n` +
+            `dialog=${el.closest('[role="dialog"]') ? 1 : 0} ` +
+            `lift=${liftedEl ? liftedEl.tagName.toLowerCase() : "-"} ` +
+            `ty=${liftedEl ? Math.round(currentTranslateY(liftedEl)) : "-"}`
           : "input=none (入力欄をタップして)");
     };
     update();
@@ -553,18 +556,12 @@
   // 両者の小さい方(=より上)を採用するので、キーボード検出に依存しない。
   function targetBottomY() {
     const vv = window.visualViewport;
-    const vvBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-    return Math.min(vvBottom - KB_MARGIN, window.innerHeight * 0.5);
-  }
-
-  // 入力欄から上へたどり position:fixed の祖先を返す(なければ null)
-  function findFixedAncestor(el) {
-    let n = el;
-    while (n && n !== document.body) {
-      if (getComputedStyle(n).position === "fixed") return n;
-      n = n.parentElement;
+    if (keyboardOpen() && vv) {
+      // キーボードが可視領域を縮めている端末: キーボードのすぐ上
+      return vv.offsetTop + vv.height - KB_MARGIN;
     }
-    return null;
+    // 縮まない端末: 画面のほぼ半分の位置(キーボードは下半分を覆う想定)
+    return window.innerHeight * 0.5;
   }
 
   // 要素に現在かかっている translateY を実測で取り出す
@@ -579,12 +576,12 @@
     }
   }
 
-  let liftedFixed = null;
+  let liftedEl = null;
 
   function clearFixedLift() {
-    if (liftedFixed) {
-      liftedFixed.style.removeProperty("transform");
-      liftedFixed = null;
+    if (liftedEl) {
+      liftedEl.style.removeProperty("transform");
+      liftedEl = null;
     }
   }
 
@@ -605,18 +602,27 @@
       if (delta <= 1) return;
     }
 
-    // スクロールで解決しない = 入力欄が固定配置(position:fixed)。
-    // その固定祖先を transform で上へ持ち上げてキーボードの上に出す。
-    const fixed = findFixedAncestor(el);
-    if (fixed) {
-      const next = currentTranslateY(fixed) - delta;
-      fixed.style.setProperty("transform", `translateY(${next}px)`, "important");
-      liftedFixed = fixed;
-      return;
+    // スクロールで解決しない = 入力欄が固定/絶対配置。入力欄を確実に含む
+    // 要素(ダイアログ、なければ body)を transform で持ち上げる。
+    // 実際に入力欄が動いたかを測って確認し、動いた候補を採用する。
+    const candidates = [];
+    const dialog = el.closest('[role="dialog"]');
+    if (dialog) candidates.push(dialog);
+    candidates.push(document.body);
+    for (const c of candidates) {
+      if (liftedEl && liftedEl !== c) clearFixedLift();
+      const before = el.getBoundingClientRect().bottom;
+      const cur = currentTranslateY(c);
+      c.style.setProperty("transform", `translateY(${cur - delta}px)`, "important");
+      const after = el.getBoundingClientRect().bottom;
+      if (after < before - 1) {
+        liftedEl = c; // 実際に動いた → 採用
+        return;
+      }
+      // 動かなかった → 変更を戻して次の候補へ
+      if (cur === 0) c.style.removeProperty("transform");
+      else c.style.setProperty("transform", `translateY(${cur}px)`, "important");
     }
-
-    // 固定でもなくスクロールもできない場合はページ全体を動かす
-    if (delta > 1) window.scrollBy(0, delta);
   }
 
   // 文字入力ごとに Facebook がスクロールを戻すので、入力を受けて再適用する
