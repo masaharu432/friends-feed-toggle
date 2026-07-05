@@ -484,94 +484,113 @@
   const INPUT_SELECTOR =
     'textarea, input, [contenteditable="true"], [role="textbox"]';
 
-  // ダイアログ下部にピン留めされた入力バーはスクロールでは動かないため、
-  // ダイアログ(なければページ全体)を transform で持ち上げる。
-  let liftTarget = null;
-  let liftPx = 0;
+  // キーボードが開いている間、入力欄を含む「入力バー」を画面下部に
+  // position:fixed で貼り付けてキーボードのすぐ上に固定する。
+  // スクロールや Facebook の再描画に影響されない。
+  let pinnedBar = null;
+  let pinnedPlaceholder = null;
+  const pinnedSaved = {};
 
-  function applyLift(target, px) {
-    if (liftTarget && liftTarget !== target) {
-      liftTarget.style.removeProperty("transform");
+  // 入力欄から上へたどり、入力バーらしい適度な高さのコンテナを選ぶ
+  function findInputBar(el) {
+    let bar = el;
+    let node = el.parentElement;
+    for (let i = 0; node && i < 6; i++) {
+      const h = node.getBoundingClientRect().height;
+      if (h > 0 && h < 160) bar = node;
+      else if (h >= 160) break;
+      node = node.parentElement;
     }
-    if (px > 0.5) {
-      target.style.setProperty(
-        "transform",
-        `translateY(-${px.toFixed(0)}px)`,
-        "important"
-      );
-      liftTarget = target;
-      liftPx = px;
-    } else {
-      target.style.removeProperty("transform");
-      liftTarget = null;
-      liftPx = 0;
-    }
+    return bar;
   }
 
-  function clearLift() {
-    if (liftTarget) applyLift(liftTarget, 0);
-  }
-
-  function keepInputVisible() {
+  function pinBar() {
     if (!enabled) return;
     const el = document.activeElement;
     if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) return;
     const vv = window.visualViewport;
-    const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-    const margin = 16;
-    let r = el.getBoundingClientRect();
-    let delta = r.bottom - (visibleBottom - margin);
-    if (delta <= 0) return;
+    if (!vv) return;
+    // キーボードが出ていない(可視領域が縮んでいない)なら何もしない
+    if (vv.height >= window.innerHeight - 60) return;
 
-    // まずスクロールで見せられる分は見せる
-    let sc = el.parentElement;
-    while (sc && sc !== document.body) {
-      const cs = getComputedStyle(sc);
-      if (
-        /(auto|scroll)/.test(cs.overflowY) &&
-        sc.scrollHeight > sc.clientHeight + 1
-      ) {
-        break;
+    const bar = findInputBar(el);
+    if (pinnedBar && pinnedBar !== bar) unpinBar();
+
+    const bottomGap = window.innerHeight - (vv.offsetTop + vv.height);
+    if (pinnedBar !== bar) {
+      const r = bar.getBoundingClientRect();
+      // 背景が透明だと下が透けるので、近い祖先の実背景色を拾う
+      let bg = "";
+      let bn = bar;
+      for (let i = 0; bn && i < 8; i++) {
+        const c = getComputedStyle(bn).backgroundColor;
+        if (c && c !== "rgba(0, 0, 0, 0)" && c !== "transparent") {
+          bg = c;
+          break;
+        }
+        bn = bn.parentElement;
       }
-      sc = sc.parentElement;
+      // 元の場所に高さを保持するプレースホルダを置いてレイアウト崩れを防ぐ
+      pinnedPlaceholder = document.createElement("div");
+      pinnedPlaceholder.style.height = r.height + "px";
+      pinnedSaved.position = bar.style.position;
+      pinnedSaved.left = bar.style.left;
+      pinnedSaved.right = bar.style.right;
+      pinnedSaved.bottom = bar.style.bottom;
+      pinnedSaved.zIndex = bar.style.zIndex;
+      pinnedSaved.width = bar.style.width;
+      bar.parentElement.insertBefore(pinnedPlaceholder, bar);
+      bar.style.setProperty("position", "fixed", "important");
+      bar.style.setProperty("left", "0", "important");
+      bar.style.setProperty("right", "0", "important");
+      bar.style.setProperty("width", "100%", "important");
+      bar.style.setProperty("z-index", "2147483646", "important");
+      bar.style.setProperty("background", bg || "#242526", "important");
+      pinnedBar = bar;
     }
-    if (sc && sc !== document.body) {
-      sc.scrollTop += delta;
-      r = el.getBoundingClientRect();
-      delta = r.bottom - (visibleBottom - margin);
-      if (delta <= 0) return;
-    }
-
-    // それでも隠れている = 固定配置なので、ダイアログごと持ち上げる
-    const dialog = el.closest('[role="dialog"]');
-    const target = dialog || document.body;
-    applyLift(target, (liftTarget === target ? liftPx : 0) + delta);
+    // キーボード高さに追従して位置を更新
+    pinnedBar.style.setProperty("bottom", bottomGap + "px", "important");
   }
 
-  function onKeyboardMaybeClosed() {
-    const vv = window.visualViewport;
-    // キーボードが閉じた(可視領域がほぼ全画面に戻った)ら持ち上げを解除
-    if (!vv || vv.height >= window.innerHeight - 60) clearLift();
+  function unpinBar() {
+    if (!pinnedBar) return;
+    for (const p of [
+      "position",
+      "left",
+      "right",
+      "bottom",
+      "z-index",
+      "width",
+      "background",
+    ]) {
+      pinnedBar.style.removeProperty(p);
+    }
+    if (pinnedSaved.position) pinnedBar.style.position = pinnedSaved.position;
+    if (pinnedPlaceholder && pinnedPlaceholder.parentElement) {
+      pinnedPlaceholder.remove();
+    }
+    pinnedBar = null;
+    pinnedPlaceholder = null;
   }
 
   window.addEventListener("focusin", () => {
-    // キーボードが出きるのを待ってから位置を補正する
-    setTimeout(keepInputVisible, 300);
-    setTimeout(keepInputVisible, 700);
+    setTimeout(pinBar, 300);
+    setTimeout(pinBar, 700);
   });
   window.addEventListener("focusout", () => {
     setTimeout(() => {
       const el = document.activeElement;
-      if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) clearLift();
+      if (!el || !el.matches || !el.matches(INPUT_SELECTOR)) unpinBar();
     }, 200);
   });
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", () => {
-      setTimeout(() => {
-        onKeyboardMaybeClosed();
-        keepInputVisible();
-      }, 50);
-    });
+    const onVV = () => {
+      const vv = window.visualViewport;
+      if (vv.height >= window.innerHeight - 60) unpinBar();
+      else setTimeout(pinBar, 30);
+    };
+    window.visualViewport.addEventListener("resize", onVV);
+    window.visualViewport.addEventListener("scroll", onVV);
   }
 
   // ポップアップからのメッセージ(診断表示・診断ダンプ)
